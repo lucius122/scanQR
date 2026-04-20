@@ -1,0 +1,31 @@
+/*
+ * FORGE Gym OS — Global Styles + Design Tokens
+ *
+ * Tailwind CSS v4 menggunakan @import dan @theme (bukan tailwind.config.js).
+ * Semua warna custom didaftarkan di dalam @theme sehingga bisa dipakai
+ * sebagai class Tailwind: bg-ink, text-bone, bg-pop, dll.
+ *
+ * Design tokens:
+ *   ink  → #0A0A0A  (hitam utama — background gelap, teks bold)
+ *   bone → #FAFAF7  (off-white — background terang, panel form)
+ *   pop  → #FACC15  (kuning — accent/CTA, warna brand FORGE)
+ */
+@import "tailwindcss";
+
+@theme {
+  --color-ink:  #0A0A0A;
+  --color-bone: #FAFAF7;
+  --color-pop:  #FACC15;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #0A0A0A;
+  color: #FAFAF7;
+}
+
+#root {
+  min-height: 100svh;
+}
