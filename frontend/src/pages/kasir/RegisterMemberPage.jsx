@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import api from '../../lib/axios'
+import { fetchList } from '../../lib/api'
 import { Avatar, Badge, Button, Field, Input } from '../../components/ui'
 
 const TIERS = ['Basic', 'Premium', 'VIP']
@@ -117,7 +118,7 @@ export default function RegisterMemberPage() {
   const [branches, setBranches] = useState([])
   const [form, setForm]         = useState({
     name: '', email: '', password: '', phone: '',
-    branch_id: '', tier: 'Basic', duration_months: '1',
+    branch_id: '', tier: 'Basic', duration: '1m',
   })
   const [photo,    setPhoto]    = useState(null)
   const [preview,  setPreview]  = useState(null)
@@ -127,9 +128,9 @@ export default function RegisterMemberPage() {
   const fileRef = useRef()
 
   useEffect(() => {
-    api.get('/api/branches').then(r => {
-      setBranches(r.data)
-      if (r.data.length > 0) setForm(f => ({ ...f, branch_id: String(r.data[0].id) }))
+    fetchList('/api/branches/options').then(list => {
+      setBranches(list)
+      if (list.length > 0) setForm(f => ({ ...f, branch_id: String(list[0].id) }))
     }).catch(() => {})
   }, [])
 
@@ -160,7 +161,7 @@ export default function RegisterMemberPage() {
     fd.append('phone',           form.phone)
     fd.append('branch_id',       form.branch_id)
     fd.append('tier',            form.tier)
-    fd.append('duration_months', form.duration_months)
+    fd.append('duration', form.duration)
     if (photo) fd.append('photo', photo)
 
     try {
@@ -181,7 +182,7 @@ export default function RegisterMemberPage() {
 
   function handleRegisterAnother() {
     setResult(null)
-    setForm({ name: '', email: '', password: '', phone: '', branch_id: branches[0]?.id ? String(branches[0].id) : '', tier: 'Basic', duration_months: '1' })
+    setForm({ name: '', email: '', password: '', phone: '', branch_id: (branches ?? [])[0]?.id ? String(branches[0].id) : '', tier: 'Basic', duration: '1m' })
     setPhoto(null)
     setPreview(null)
     setErrors({})
@@ -352,36 +353,33 @@ export default function RegisterMemberPage() {
             {errors.tier && <p className="text-[11px] text-bad mt-1">{errors.tier[0]}</p>}
           </div>
 
-          {/* Duration */}
-          <Field label="Durasi (bulan)" hint={errors.duration_months?.[0]}>
-            <div className="flex items-center gap-3">
-              <Input
-                type="number"
-                min="1"
-                max="36"
-                value={form.duration_months}
-                onChange={set('duration_months')}
-                className={`w-24 ${errors.duration_months ? 'border-bad' : ''}`}
-              />
-              <div className="flex gap-1.5">
-                {[1, 3, 6, 12].map(n => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, duration_months: String(n) }))}
-                    className={
-                      `h-8 px-3 text-xs rounded-md hairline transition font-medium ` +
-                      (form.duration_months === String(n)
-                        ? 'bg-pop border-pop'
-                        : 'hover:bg-bone-2')
-                    }
-                  >
-                    {n}bln
-                  </button>
-                ))}
-              </div>
+          {/* Duration — preset buttons */}
+          <div>
+            <span className="micro text-ink-4 block mb-2">DURASI KEANGGOTAAN</span>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { key: '1d', label: '1 Hari' },
+                { key: '1w', label: '1 Minggu' },
+                { key: '1m', label: '1 Bulan' },
+                { key: '3m', label: '3 Bulan' },
+              ].map(d => (
+                <button
+                  key={d.key}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, duration: d.key }))}
+                  className={
+                    `py-2.5 rounded-lg text-sm font-semibold hairline transition ` +
+                    (form.duration === d.key
+                      ? 'bg-ink text-white border-ink'
+                      : 'bg-white text-ink hover:bg-bone-2')
+                  }
+                >
+                  {d.label}
+                </button>
+              ))}
             </div>
-          </Field>
+            {errors.duration && <p className="text-[11px] text-bad mt-1">{errors.duration[0]}</p>}
+          </div>
         </div>
 
         {/* Submit */}

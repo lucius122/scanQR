@@ -112,24 +112,9 @@ class CheckInService
             );
         }
 
-        // Langkah 6: Anti-spam — cegah double check-in dalam 2 jam.
-        $recentCheckIn = CheckIn::where('member_id', $member->id)
-            ->where('status', 'success')
-            ->where('checked_in_at', '>=', now()->subHours(2))
-            ->latest('checked_in_at')
-            ->first();
-
-        if ($recentCheckIn) {
-            $timeStr = $recentCheckIn->checked_in_at->setTimezone(config('app.timezone'))->format('H:i');
-            return $this->buildResponse(
-                'already_checked_in',
-                $member,
-                "Member sudah check-in jam {$timeStr} tadi.",
-                $recentCheckIn
-            );
-        }
-
-        // Langkah 7: Semua validasi lolos → record check-in
+        // Langkah 6: Record check-in.
+        // Tidak ada anti-spam — setiap scan dicatat sebagai kunjungan terpisah
+        // untuk melacak frekuensi kunjungan member (track record).
         $checkIn = CheckIn::create([
             'member_id'     => $member->id,
             'branch_id'     => $kasir->branch_id,

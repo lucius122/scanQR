@@ -53,7 +53,7 @@ export default function LoginPage() {
 
         {/* Copy — desktop */}
         <div className="relative z-10 mt-8 lg:mt-auto hidden lg:block">
-          <div className="micro text-pop mb-4">GYM OS · v1.0</div>
+          <div className="micro text-pop mb-4">88 STRONG GYM · Cabang 2</div>
           <h1 className="text-5xl xl:text-6xl font-black tracking-tight leading-[1.02]">
             Train hard.<br />
             <span className="text-pop">Run smart.</span>
@@ -63,7 +63,7 @@ export default function LoginPage() {
             Absensi QR, keanggotaan, dan laporan dalam satu tempat.
           </p>
           <div className="grid grid-cols-3 gap-3 mt-10 max-w-md">
-            {[['4', 'Cabang'], ['1.1k', 'Active members'], ['24/7', 'Operations']].map(([v, l]) => (
+            {[['4', 'Cabang'], ['1.1k', 'Active members'], ['06:00–22:00', 'WIB']].map(([v, l]) => (
               <div key={l} className="hairline rounded-lg p-3">
                 <div className="text-2xl font-extrabold">{v}</div>
                 <div className="micro text-white/50">{l}</div>
@@ -83,9 +83,9 @@ export default function LoginPage() {
       <div className="flex items-center justify-center p-6 md:p-10 lg:p-14">
         <form className="w-full max-w-md" onSubmit={handleSubmit}>
           <div className="micro text-ink-4 mb-2">WELCOME BACK</div>
-          <h2 className="text-3xl md:text-4xl font-black tracking-tight">Sign in to Forge</h2>
+          <h2 className="text-3xl md:text-4xl font-black tracking-tight">Masuk ke 88 STRONG GYM</h2>
           <p className="text-ink-4 mt-2 text-sm">
-            Gunakan akun Forge Anda. Role terdeteksi otomatis setelah masuk.
+            Gunakan akun 88 STRONG GYM Anda. Role terdeteksi otomatis setelah masuk.
           </p>
 
           <div className="mt-8 space-y-4">
@@ -100,7 +100,7 @@ export default function LoginPage() {
                   onChange={e => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  placeholder="nama@forgegym.id"
+                  placeholder="nama@88stronggym.id"
                   className={cls(
                     'w-full h-11 pl-9 pr-4 hairline bg-white rounded-md text-sm focus-ring placeholder:text-ink-4/60',
                     'focus:outline-none',
@@ -160,7 +160,7 @@ export default function LoginPage() {
             </button>
 
             <p className="text-center text-xs text-ink-4 pt-2">
-              Dengan masuk, Anda menyetujui <u>Ketentuan</u> & <u>Privasi</u> FORGE.
+              Dengan masuk, Anda menyetujui <u>Ketentuan</u> & <u>Privasi</u> 88 STRONG GYM.
             </p>
           </div>
         </form>
