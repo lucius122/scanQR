@@ -28,6 +28,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/member/qr', [MemberQrController::class, 'show']);
     Route::post('/member/qr/regenerate', [MemberQrController::class, 'regenerate']);
 
+    // Branches — list untuk dropdown form pendaftaran
+    Route::get('/branches', function () {
+        return response()->json(
+            \App\Models\Branch::where('status', 'active')
+                ->orderBy('name')
+                ->get(['id', 'name'])
+        );
+    });
+
     // Member — registration (role: kasir, admin)
     Route::post('/members', [MemberRegistrationController::class, 'store']);
 

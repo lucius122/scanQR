@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Member;
 use App\Models\User;
+use App\Services\QrService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,69 +13,94 @@ use Illuminate\Validation\Rule;
 
 class MemberRegistrationController extends Controller
 {
+    public function __construct(private QrService $qrService) {}
+
     /*
      * POST /api/members
-     * Endpoint untuk kasir dan admin mendaftarkan member baru.
+     * Kasir / admin mendaftarkan member baru.
      *
-     * Proses berjalan dalam DB transaction:
-     *   1. Buat User (role=member)
-     *   2. Buat Member profile → member_code & qr_token di-generate
-     *      otomatis via Member::booted() (tidak perlu diisi manual)
+     * Proses dalam DB transaction:
+     *   1. Simpan foto (jika ada) ke storage/app/public/photos
+     *   2. Buat User (role=member)
+     *   3. Buat Member → member_code & qr_token auto-generate via booted()
+     *   4. Generate QR payload untuk langsung ditampilkan kasir / dicetak
      *
      * Mengapa transaction?
-     *   Jika pembuatan Member gagal (misal DB error), User yang sudah
-     *   terbuat akan ikut di-rollback → tidak ada "orphan user tanpa profil member".
+     *   Jika salah satu langkah gagal (DB error, storage penuh, dll),
+     *   semua perubahan di-rollback → tidak ada "orphan user" tanpa member profile.
      */
     public function store(Request $request): JsonResponse
     {
-        // Hanya kasir dan admin yang boleh mendaftarkan member
         if (!in_array($request->user()->role, ['kasir', 'admin'])) {
             return response()->json(['message' => 'Tidak memiliki akses.'], 403);
         }
 
         $data = $request->validate([
-            'name'         => ['required', 'string', 'max:255'],
-            'email'        => ['required', 'email', 'unique:users,email'],
-            'password'     => ['required', 'string', 'min:8'],
-            'branch_id'    => ['required', 'exists:branches,id'],
-            'tier'         => ['required', Rule::in(['Basic', 'Premium', 'VIP'])],
-            'expires_date' => ['required', 'date', 'after_or_equal:today'],
+            'name'            => ['required', 'string', 'max:255'],
+            'email'           => ['required', 'email', 'unique:users,email'],
+            'password'        => ['required', 'string', 'min:8'],
+            'phone'           => ['nullable', 'string', 'max:30'],
+            'photo'           => ['nullable', 'image', 'max:2048'],
+            'branch_id'       => ['required', 'exists:branches,id'],
+            'tier'            => ['required', Rule::in(['Basic', 'Premium', 'VIP'])],
+            'duration_months' => ['required', 'integer', 'min:1'],
         ]);
 
-        $result = DB::transaction(function () use ($data) {
-            $user = User::create([
-                'name'      => $data['name'],
-                'email'     => $data['email'],
-                'password'  => Hash::make($data['password']),
-                'role'      => 'member',
-                'branch_id' => $data['branch_id'],
-                'status'    => 'active',
-            ]);
+        /*
+         * Foto di-store sebelum transaction DB dimulai.
+         * Storage::putFile() aman dipanggil di luar transaction karena
+         * jika transaction gagal, file akan dihapus manual (lihat catch di bawah).
+         * Pendekatan ini menghindari lock lama di dalam transaction.
+         */
+        $photoPath = $request->hasFile('photo')
+            ? $request->file('photo')->store('photos', 'public')
+            : null;
 
-            /*
-             * member_code  → di-generate otomatis oleh booted() di Member model
-             * qr_token     → idem, Str::random(64)
-             * joined_date  → hari ini
-             */
-            $member = Member::create([
-                'user_id'      => $user->id,
-                'tier'         => $data['tier'],
-                'joined_date'  => now()->toDateString(),
-                'expires_date' => $data['expires_date'],
-            ]);
+        try {
+            [$user, $member] = DB::transaction(function () use ($data, $photoPath) {
+                $user = User::create([
+                    'name'      => $data['name'],
+                    'email'     => $data['email'],
+                    'password'  => Hash::make($data['password']),
+                    'role'      => 'member',
+                    'branch_id' => $data['branch_id'],
+                    'status'    => 'active',
+                    'photo'     => $photoPath,
+                    'phone'     => $data['phone'] ?? null,
+                ]);
 
-            return [$user, $member];
-        });
+                /*
+                 * member_code  → auto-generate: "FG-2026-00001" via Member::booted()
+                 * qr_token     → auto-generate: Str::random(64) via Member::booted()
+                 * joined_date  → hari ini
+                 * expires_date → hari ini + duration_months bulan
+                 */
+                $member = Member::create([
+                    'user_id'      => $user->id,
+                    'tier'         => $data['tier'],
+                    'joined_date'  => now()->toDateString(),
+                    'expires_date' => now()->addMonths((int) $data['duration_months'])->toDateString(),
+                ]);
 
-        [$user, $member] = $result;
+                return [$user, $member];
+            });
+        } catch (\Throwable $e) {
+            // Hapus foto yang sudah ter-upload jika transaction gagal
+            if ($photoPath) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($photoPath);
+            }
+            throw $e;
+        }
 
         return response()->json([
-            'message'     => 'Member berhasil didaftarkan.',
-            'member_code' => $member->member_code,
-            'user' => [
-                'id'    => $user->id,
-                'name'  => $user->name,
-                'email' => $user->email,
+            'status' => 'success',
+            'data'   => [
+                'member_code'  => $member->member_code,
+                'qr_payload'   => $this->qrService->generate($member),
+                'name'         => $user->name,
+                'tier'         => $member->tier,
+                'expires_date' => $member->expires_date->format('Y-m-d'),
+                'branch'       => $user->branch?->name,
             ],
         ], 201);
     }

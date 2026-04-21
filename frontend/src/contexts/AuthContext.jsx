@@ -47,8 +47,17 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
-    await api.post('/api/logout')
-    setUser(null)
+    try {
+      await api.post('/api/logout')
+    } finally {
+      /*
+       * User state dibersihkan di finally — bukan di try — agar tetap
+       * ter-clear meskipun request gagal (misal: koneksi terputus).
+       * Akibatnya frontend akan redirect ke /login dan session browser
+       * dianggap berakhir dari sisi client.
+       */
+      setUser(null)
+    }
   }
 
   return (

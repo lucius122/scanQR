@@ -61,6 +61,7 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return response()->json([
+            'status'  => 'success',
             'message' => 'Logout berhasil.',
         ]);
     }

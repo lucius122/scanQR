@@ -1,41 +1,37 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../lib/axios'
+import { Avatar, Badge, Button } from '../../components/ui'
+import * as I from '../../components/icons'
 
-/*
- * Format tanggal ke bahasa Indonesia tanpa jam.
- * Parsing manual (YYYY-MM-DD) menghindari masalah timezone — tanpa ini,
- * "2026-07-20" di-parse sebagai UTC midnight lalu dikonversi ke timezone
- * lokal bisa bergeser satu hari.
- */
 function formatDateID(dateStr) {
+  if (!dateStr) return '—'
   const [year, month, day] = dateStr.split('-').map(Number)
   return new Intl.DateTimeFormat('id-ID', {
     day: 'numeric', month: 'long', year: 'numeric',
   }).format(new Date(year, month - 1, day))
 }
 
-const TIER_STYLE = {
-  Basic:   'bg-bone/15 text-bone border border-bone/20',
-  Premium: 'bg-pop/15 text-pop border border-pop/30',
-  VIP:     'bg-purple-500/15 text-purple-300 border border-purple-500/30',
+const TIER_BADGE = {
+  Basic:   { tone: 'outline' },
+  Premium: { tone: 'pop'     },
+  VIP:     { tone: 'ink'     },
 }
 
 export default function MemberDashboard() {
-  const { user, logout }    = useAuth()
-  const navigate             = useNavigate()
-  const [qrData, setQrData] = useState(null)
-  const [loading, setLoading]       = useState(true)
-  const [error, setError]           = useState(null)
-  const [fullscreen, setFullscreen] = useState(false)
-  const [regenerating, setRegenerating] = useState(false)
-  const [regenSuccess, setRegenSuccess] = useState(false)
+  const { user } = useAuth()
+
+  const [qrData,       setQrData]       = useState(null)
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState(null)
+  const [fullscreen,      setFullscreen]      = useState(false)
+  const [regenerating,    setRegenerating]    = useState(false)
+  const [regenSuccess,    setRegenSuccess]    = useState(false)
+  const [confirmRegen,    setConfirmRegen]    = useState(false)
 
   useEffect(() => { fetchQr() }, [])
 
-  // Tutup fullscreen dengan tombol Escape
   useEffect(() => {
     if (!fullscreen) return
     const onKey = (e) => { if (e.key === 'Escape') setFullscreen(false) }
@@ -57,6 +53,7 @@ export default function MemberDashboard() {
   }
 
   async function handleRegenerate() {
+    setConfirmRegen(false)
     setRegenerating(true)
     setRegenSuccess(false)
     try {
@@ -65,238 +62,239 @@ export default function MemberDashboard() {
       setRegenSuccess(true)
       setTimeout(() => setRegenSuccess(false), 3000)
     } catch {
-      setError('Gagal generate QR baru.')
+      setError('Gagal membuat QR baru.')
     } finally {
       setRegenerating(false)
     }
   }
 
-  async function handleLogout() {
-    await logout()
-    navigate('/login', { replace: true })
-  }
+  const isActive = qrData?.status === 'active'
+  const tierCfg  = TIER_BADGE[qrData?.tier] ?? TIER_BADGE.Basic
 
-  const isActive    = qrData?.status === 'active'
-  const initials    = user?.name?.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
-
-  // ─── Loading ──────────────────────────────────────────────────────────────
+  // ── Loading skeleton ──────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-ink flex items-center justify-center">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-6 py-10 flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-8 h-8 border-2 border-pop border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-bone/40 text-sm">Memuat QR code...</p>
+          <p className="text-ink-4 text-sm">Memuat QR code…</p>
         </div>
       </div>
     )
   }
 
-  // ─── Error ────────────────────────────────────────────────────────────────
+  // ── Error ────────────────────────────────────────────────────────────────
   if (error && !qrData) {
     return (
-      <div className="min-h-screen bg-ink flex items-center justify-center p-6">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-6 py-10 flex items-center justify-center">
         <div className="text-center space-y-4 max-w-sm">
           <p className="text-bad text-sm">{error}</p>
-          <button
-            onClick={fetchQr}
-            className="px-5 py-2.5 bg-bone/10 hover:bg-bone/20 rounded-lg text-sm text-bone transition-colors cursor-pointer"
-          >
-            Coba Lagi
-          </button>
+          <Button variant="outline" onClick={fetchQr}>Coba Lagi</Button>
         </div>
       </div>
     )
   }
 
-  // ─── Main ─────────────────────────────────────────────────────────────────
+  const daysLeft = qrData?.days_left ?? 0
+
   return (
-    <div className="min-h-screen bg-ink font-sans">
+    <div className="max-w-[1200px] mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-5 pb-24 lg:pb-6">
 
-      {/* Header */}
-      <header className="flex items-center justify-between px-5 py-4 border-b border-ink-3">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-pop rounded-md flex items-center justify-center">
-            <span className="text-ink text-xs font-black">F</span>
+      {/* Greeting */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <div className="micro text-ink-4">MEMBER DASHBOARD</div>
+          <div className="text-xl md:text-2xl font-black tracking-tight">
+            Hi, {user?.name?.split(' ')[0]}
           </div>
-          <span className="text-bone/60 text-sm font-medium">FORGE Gym OS</span>
         </div>
-        <button
-          onClick={handleLogout}
-          className="text-bone/40 hover:text-bone/70 text-sm transition-colors cursor-pointer"
-        >
-          Keluar
-        </button>
-      </header>
+        <Badge tone={isActive ? 'ok' : 'bad'} dot>
+          {isActive ? 'AKTIF' : 'EXPIRED'}
+        </Badge>
+      </div>
 
-      {/* Content */}
-      <main className="max-w-sm mx-auto px-4 py-8 space-y-5">
+      {/* ── Hero: QR + Membership card ── */}
+      <div className="grid lg:grid-cols-[1.15fr_1fr] gap-4 md:gap-5">
 
-        {/* ── QR Hero Card ── */}
-        <div className="bg-ink-2 rounded-2xl p-6 border border-ink-3 space-y-6">
+        {/* QR Hero — dark card */}
+        <div className="bg-ink on-dark text-white rounded-xl overflow-hidden relative">
+          <div className="absolute inset-0 opacity-20 dotbg pointer-events-none" />
+          <div className="relative p-5 md:p-7 flex flex-col items-center">
 
-          {/* QR Code + pulse */}
-          <div className="flex flex-col items-center gap-5">
-            <div
-              className={`rounded-2xl ${isActive ? 'qr-pulse-active' : ''}`}
-              style={isActive ? {} : { border: '2px solid #DC2626' }}
-            >
-              <div className="bg-white p-4 rounded-xl">
-                {qrData?.qr_payload ? (
-                  <QRCodeSVG
-                    value={qrData.qr_payload}
-                    size={220}
-                    level="L"
-                    /*
-                     * level="L" → 7% error correction.
-                     * Dipilih karena payload cukup panjang (~170 karakter),
-                     * level rendah menghasilkan QR lebih sederhana dan mudah di-scan.
-                     * Gunakan level="M" jika lingkungan scan sering buram.
-                     */
-                  />
-                ) : (
-                  <div className="w-[220px] h-[220px] bg-bone-2 rounded flex items-center justify-center">
-                    <span className="text-ink/30 text-sm">No QR</span>
-                  </div>
-                )}
-              </div>
+            {/* Header row */}
+            <div className="flex items-center justify-between w-full">
+              <div className="micro text-pop">ATTENDANCE · QR</div>
+              <button
+                onClick={() => setFullscreen(true)}
+                className="text-white/70 hover:text-white flex items-center gap-1.5 text-[12px] transition"
+              >
+                <I.Maximize size={14} /> Fullscreen
+              </button>
             </div>
 
-            {/* Status badge */}
-            <div className={`
-              flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold
-              ${isActive
-                ? 'bg-ok/15 text-ok border border-ok/30'
-                : 'bg-bad/15 text-bad border border-bad/30'}
-            `}>
-              <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-ok' : 'bg-bad'}`} />
-              {isActive ? 'AKTIF' : 'EXPIRED'}
-            </div>
-          </div>
-
-          {/* Member info */}
-          <div className="flex items-center gap-4">
-            {/* Avatar */}
-            <div className="w-12 h-12 bg-pop rounded-xl flex items-center justify-center shrink-0">
-              <span className="text-ink text-lg font-black">{initials}</span>
-            </div>
-
-            {/* Nama + kode */}
-            <div className="flex-1 min-w-0">
-              <p className="text-bone font-semibold truncate">{qrData?.name ?? user?.name}</p>
-              <p className="font-mono text-bone/50 text-xs mt-0.5 tracking-wide">
-                {qrData?.member_code}
-              </p>
-              {qrData?.branch && (
-                <p className="text-bone/40 text-xs mt-0.5">{qrData.branch}</p>
+            {/* QR code */}
+            <div className={`mt-4 bg-white p-3 md:p-4 rounded-lg ${isActive ? 'pulse-ring' : ''}`}>
+              {qrData?.qr_payload ? (
+                <QRCodeSVG value={qrData.qr_payload} size={220} level="L" />
+              ) : (
+                <div className="w-[220px] h-[220px] bg-bone-2 rounded flex items-center justify-center">
+                  <span className="text-ink/30 text-sm">No QR</span>
+                </div>
               )}
             </div>
 
-            {/* Tier badge */}
-            <span className={`
-              text-xs font-semibold px-2.5 py-1 rounded-full shrink-0
-              ${TIER_STYLE[qrData?.tier] ?? TIER_STYLE.Basic}
-            `}>
-              {qrData?.tier}
-            </span>
+            {/* Member info row */}
+            <div className="w-full mt-5 grid grid-cols-[auto_1fr_auto] gap-3 items-center">
+              <Avatar name={user?.name ?? '?'} size={44} accent />
+              <div>
+                <div className="font-bold text-[15px] leading-tight">{user?.name}</div>
+                <div className="mono text-[11px] text-white/60">{qrData?.member_code}</div>
+              </div>
+              <Badge tone={tierCfg.tone}>{qrData?.tier}</Badge>
+            </div>
+
+            {/* Footer row */}
+            <div className="w-full hairline-t mt-4 pt-4 flex justify-between text-[12px] mono text-white/60">
+              <span>{qrData?.branch ?? user?.branch?.name}</span>
+              <span>SCAN AT FRONT DESK →</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Membership card + stats */}
+        <div className="flex flex-col gap-4 md:gap-5">
+
+          {/* Membership card */}
+          <div className="bg-white hairline rounded-xl p-5 md:p-6 relative overflow-hidden flex-1">
+            {/* Yellow circle decoration */}
+            <div className="absolute -right-8 -top-8 w-40 h-40 bg-pop rounded-full opacity-80" />
+            <div className="absolute right-6 bottom-6 opacity-10 pointer-events-none">
+              <I.Dumbbell size={90} />
+            </div>
+            <div className="relative">
+              <div className="flex items-center justify-between">
+                <div className="micro text-ink-4">MEMBERSHIP</div>
+                <Badge tone={isActive ? 'ok' : 'bad'} dot>{isActive ? 'ACTIVE' : 'EXPIRED'}</Badge>
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <div className="text-3xl md:text-4xl font-black tracking-tight">{qrData?.tier ?? '—'}</div>
+                <div className="text-[13px] text-ink-4 font-medium">
+                  @ {qrData?.branch ?? user?.branch?.name}
+                </div>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-4">
+                <div>
+                  <div className="micro text-ink-4">BERLAKU SAMPAI</div>
+                  <div className="text-[15px] font-bold mt-0.5">{formatDateID(qrData?.expires_date)}</div>
+                </div>
+                <div>
+                  <div className="micro text-ink-4">SISA</div>
+                  <div className="text-[15px] font-bold mt-0.5">
+                    {isActive
+                      ? daysLeft === 0 ? 'Hari ini' : `${daysLeft} hari`
+                      : 'Expired'}
+                  </div>
+                </div>
+              </div>
+              {/* Days-left bar */}
+              <div className="mt-3">
+                <div className="h-1.5 bg-bone-2 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-ink rounded-full transition-all"
+                    style={{ width: `${Math.min(100, Math.max(0, (daysLeft / 365) * 100))}%` }}
+                  />
+                </div>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <Button variant="ink" size="sm">Perpanjang</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmRegen(true)}
+                  disabled={regenerating}
+                >
+                  {regenerating ? '…' : '↻ QR Baru'}
+                </Button>
+              </div>
+            </div>
           </div>
 
-          {/* Validity info */}
-          <div className={`
-            rounded-xl p-4 border space-y-1
-            ${isActive
-              ? 'bg-ok/5 border-ok/15'
-              : 'bg-bad/5 border-bad/15'}
-          `}>
-            <p className={`text-xs font-medium ${isActive ? 'text-ok' : 'text-bad'}`}>
-              {isActive ? 'Berlaku sampai' : 'Keanggotaan berakhir'}
-            </p>
-            <p className="text-bone text-sm font-semibold">
-              {qrData?.expires_date ? formatDateID(qrData.expires_date) : '—'}
-            </p>
-            {isActive && (
-              <p className="text-bone/40 text-xs">
-                {qrData?.days_left === 0
-                  ? 'Berakhir hari ini'
-                  : `${qrData?.days_left} hari lagi`}
-              </p>
-            )}
-          </div>
-
-          {/* Notif regenerate sukses */}
+          {/* Regen success */}
           {regenSuccess && (
-            <div className="bg-ok/10 border border-ok/25 rounded-lg px-4 py-2.5 text-center">
+            <div className="bg-ok/10 border border-ok/25 rounded-md px-4 py-2.5 text-center">
               <p className="text-ok text-xs font-medium">
                 ✓ QR baru berhasil dibuat — QR lama tidak berlaku.
               </p>
             </div>
           )}
-
-          {/* Action buttons */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setFullscreen(true)}
-              className="py-3 bg-bone/8 hover:bg-bone/15 border border-bone/15
-                         rounded-xl text-bone text-sm font-medium
-                         transition-colors cursor-pointer"
-            >
-              ⛶  Layar Penuh
-            </button>
-            <button
-              onClick={handleRegenerate}
-              disabled={regenerating}
-              className="py-3 bg-pop/10 hover:bg-pop/20 border border-pop/25
-                         rounded-xl text-pop text-sm font-medium
-                         disabled:opacity-50 transition-colors cursor-pointer"
-            >
-              {regenerating ? '...' : '↻  QR Baru'}
-            </button>
-          </div>
         </div>
+      </div>
 
-        {/* Info hint */}
-        <p className="text-bone/25 text-xs text-center px-2">
-          Tunjukkan QR code ini ke kasir untuk check-in.
-          {!isActive && ' Perpanjang keanggotaan Anda di kasir.'}
-        </p>
+      {/* Hint text */}
+      <p className="text-ink-4 text-xs text-center px-2">
+        Tunjukkan QR code ini ke kasir untuk check-in.
+        {!isActive && ' Perpanjang keanggotaan Anda di kasir.'}
+      </p>
 
-      </main>
-
-      {/* ── Fullscreen Modal ── */}
-      {fullscreen && (
+      {/* ── Confirm dialog — regenerate QR ── */}
+      {confirmRegen && (
         <div
-          className="fixed inset-0 z-50 bg-ink/96 flex flex-col items-center justify-center gap-6 p-6"
-          onClick={() => setFullscreen(false)}
+          className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-sm flex items-center justify-center p-6"
+          onClick={() => setConfirmRegen(false)}
         >
-          {/* Mencegah klik di dalam QR box menutup modal */}
           <div
-            className="flex flex-col items-center gap-5"
+            className="bg-white rounded-xl w-full max-w-sm p-6 shadow-xl"
             onClick={e => e.stopPropagation()}
           >
-            {/* QR besar */}
-            <div className={`rounded-2xl ${isActive ? 'qr-pulse-active' : ''}`}>
-              <div className="bg-white p-5 rounded-xl shadow-2xl">
-                <QRCodeSVG
-                  value={qrData?.qr_payload ?? ''}
-                  size={280}
-                  level="L"
-                />
-              </div>
-            </div>
-
-            {/* Info singkat */}
-            <div className="text-center">
-              <p className="text-bone font-semibold">{qrData?.name}</p>
-              <p className="font-mono text-bone/50 text-sm mt-1 tracking-wide">
-                {qrData?.member_code}
-              </p>
+            <div className="text-lg font-black mb-1">Generate QR Baru?</div>
+            <p className="text-sm text-ink-4 mb-5">
+              QR lama akan otomatis tidak valid. Tindakan ini tidak bisa dibatalkan.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setConfirmRegen(false)}>
+                Batal
+              </Button>
+              <Button variant="ink" className="flex-1" onClick={handleRegenerate}>
+                Ya, Generate Baru
+              </Button>
             </div>
           </div>
-
-          {/* Hint tutup */}
-          <p className="text-bone/25 text-xs">Tap di luar atau tekan Esc untuk tutup</p>
         </div>
       )}
 
+      {/* ── Fullscreen modal ── */}
+      {fullscreen && (
+        <div
+          className="fixed inset-0 z-50 bg-ink flex items-center justify-center p-6"
+          onClick={() => setFullscreen(false)}
+        >
+          <button
+            className="absolute top-5 right-5 text-white/70 hover:text-white"
+            onClick={() => setFullscreen(false)}
+          >
+            <I.X size={24} />
+          </button>
+          <div
+            className="w-full max-w-md text-center text-white"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="micro text-pop mb-3">TUNJUKKAN KE KASIR</div>
+            <div className={`bg-white p-5 rounded-xl inline-block ${isActive ? 'pulse-ring' : ''}`}>
+              <QRCodeSVG value={qrData?.qr_payload ?? ''} size={300} level="L" />
+            </div>
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <Avatar name={user?.name ?? '?'} size={44} accent />
+              <div className="text-left">
+                <div className="font-bold">{user?.name}</div>
+                <div className="mono text-[11px] text-white/60">
+                  {qrData?.member_code} · {qrData?.tier}
+                </div>
+              </div>
+            </div>
+            <p className="text-white/25 text-xs mt-4">Tap di luar atau tekan Esc untuk tutup</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

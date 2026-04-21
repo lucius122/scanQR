@@ -1,21 +1,9 @@
 /*
  * FORGE Gym OS — Global Styles & Design System
  *
- * Tailwind CSS v4: tokens didaftarkan di @theme (bukan tailwind.config.js).
- * Setelah didaftarkan di sini, semua token bisa dipakai sebagai class Tailwind:
- *   bg-ink, bg-ink-2, text-pop, border-bone-3, text-ok, bg-bad, dll.
- *
- * PALETTE:
- *   ink  → hitam utama  (#0A0A0A → #404040)  — background gelap & teks
- *   bone → off-white    (#FAFAF7 → #E8E8E2)  — background terang & panel
- *   pop  → kuning brand (#FACC15 / #EAB308)  — accent, CTA, highlights
- *   ok   → hijau        (#16A34A)             — status aktif, sukses
- *   warn → kuning-oranye(#F59E0B)             — peringatan
- *   bad  → merah        (#DC2626)             — error, expired, bahaya
- *
- * FONT:
- *   sans → Inter (UI text, label, body)
- *   mono → JetBrains Mono (member code, token, ID teknis)
+ * Tailwind CSS v4: tokens didaftarkan di @theme.
+ * Custom utility classes (.hairline, .micro, .mono, dll) didefinisikan
+ * sebagai plain CSS di bawah @theme block.
  */
 @import "tailwindcss";
 
@@ -40,12 +28,87 @@
   --color-warn: #F59E0B;
   --color-bad:  #DC2626;
 
-  /* Fonts — didaftarkan agar bisa dipakai sebagai font-sans, font-mono */
+  /* Fonts */
   --font-sans: 'Inter', system-ui, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+
+  /* Border radius */
+  --radius-xs:  4px;
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  20px;
+  --radius-2xl: 24px;
 }
 
-/* Laser scan animation untuk QR scanner viewfinder */
+/* ── Custom utility classes ────────────────────────────────────────────────── */
+
+/* Typography helpers */
+.mono  { font-family: 'JetBrains Mono', monospace; font-feature-settings: "zero"; }
+.micro { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* Hairline borders — 1px rgba for that optical-thin look */
+.hairline   { border: 1px solid rgba(10,10,10,0.08); }
+.hairline-b { border-bottom: 1px solid rgba(10,10,10,0.08); }
+.hairline-t { border-top:    1px solid rgba(10,10,10,0.08); }
+.hairline-r { border-right:  1px solid rgba(10,10,10,0.08); }
+
+/* On dark backgrounds, flip hairline to white tint */
+.on-dark .hairline,   .on-dark.hairline   { border-color:        rgba(255,255,255,0.1); }
+.on-dark .hairline-b                      { border-bottom-color: rgba(255,255,255,0.1); }
+.on-dark .hairline-t                      { border-top-color:    rgba(255,255,255,0.1); }
+.on-dark .hairline-r                      { border-right-color:  rgba(255,255,255,0.1); }
+
+/* Scrollbar hide */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+/* Tab with animated bottom-border underline */
+.tab-underline { position: relative; }
+.tab-underline[data-active="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 2px;
+  background: #0A0A0A;
+}
+
+/* Pill badge */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Background patterns */
+.dotbg {
+  background-image: radial-gradient(rgba(10,10,10,0.08) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+.stripebg-dark {
+  background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.06) 0 6px, transparent 6px 12px);
+}
+
+/* Placeholder image block */
+.ph {
+  background:
+    repeating-linear-gradient(135deg, rgba(10,10,10,0.06) 0 6px, transparent 6px 12px),
+    #E8E8E2;
+  color: #404040;
+}
+
+/* Focus ring using brand yellow */
+.focus-ring:focus { outline: 2px solid #FACC15; outline-offset: 2px; }
+
+/* Text selection */
+::selection { background: #FACC15; color: #0A0A0A; }
+
+/* ── Keyframe animations ───────────────────────────────────────────────────── */
+
 @keyframes laser-scan {
   0%   { top: 8%;  opacity: 1; }
   48%  { opacity: 0.8; }
@@ -53,31 +116,52 @@
   98%  { opacity: 0.8; }
   100% { top: 8%;  opacity: 1; }
 }
-
 .animate-laser-scan {
   position: absolute;
   animation: laser-scan 2s ease-in-out infinite;
 }
 
-/* Custom keyframe untuk pulse ring di sekitar QR code */
 @keyframes qr-pulse {
-  0%   { box-shadow: 0 0 0 0px rgba(250, 204, 21, 0.5); }
-  70%  { box-shadow: 0 0 0 14px rgba(250, 204, 21, 0); }
-  100% { box-shadow: 0 0 0 0px rgba(250, 204, 21, 0); }
+  0%   { box-shadow: 0 0 0 0px  rgba(250,204,21,0.5); }
+  70%  { box-shadow: 0 0 0 14px rgba(250,204,21,0);   }
+  100% { box-shadow: 0 0 0 0px  rgba(250,204,21,0);   }
 }
+.qr-pulse-active { animation: qr-pulse 2s ease-out infinite; }
 
-.qr-pulse-active {
-  animation: qr-pulse 2s ease-out infinite;
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0  rgba(250,204,21,0.5); }
+  70%  { box-shadow: 0 0 0 10px rgba(250,204,21,0);  }
+  100% { box-shadow: 0 0 0 0  rgba(250,204,21,0);   }
 }
+.pulse-ring { animation: pulse-ring 2.2s infinite; }
+
+/* Modal overlay + card entrance */
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);   }
+}
+.animate-overlay-in { animation: overlay-in 0.18s ease-out; }
+.animate-modal-in   { animation: modal-in   0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Toast slide-up */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.animate-toast-in { animation: toast-in 0.2s ease-out; }
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
 
 body {
   margin: 0;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  background-color: #0A0A0A;
-  color: #FAFAF7;
+  background-color: #FAFAF7;
+  color: #0A0A0A;
 }
 
-#root {
-  min-height: 100svh;
-}
+#root { min-height: 100svh; }
