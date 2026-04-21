@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CheckIn;
 use App\Models\Member;
 use App\Models\User;
+use App\Services\AuditLogService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -48,13 +49,10 @@ class CheckInService
         // Langkah 2: Verify HMAC — pastikan QR asli dan tidak dimanipulasi
         $parsed = $this->qrService->verify($payload);
         if (!$parsed) {
-            /*
-             * Status 'invalid_qr' khusus untuk HMAC failure → HTTP 400 di controller.
-             * Dibedakan dari 'invalid' (akun bermasalah) yang return HTTP 200,
-             * karena masalahnya berbeda:
-             *   invalid_qr = request itu sendiri rusak/dipalsukan
-             *   invalid    = request valid, tapi ada masalah di data
-             */
+            AuditLogService::log('qr_invalid_signature', $kasir, 'bad', [
+                'attempted_payload' => substr($payload, 0, 80) . (strlen($payload) > 80 ? '...' : ''),
+                'scanner_branch'    => $kasir->branch?->name,
+            ]);
             return $this->noMemberResponse('QR tidak valid atau telah dimanipulasi.', 'invalid_qr');
         }
 
@@ -103,6 +101,10 @@ class CheckInService
         if (!$member->isActive()) {
             /** @var CarbonInterface $expires */
             $expires = $member->expires_date;
+            AuditLogService::log('expired_member_scan_attempt', $kasir, 'warn', [
+                'member_code'  => $member->member_code,
+                'expired_since' => $expires->format('Y-m-d'),
+            ]);
             return $this->buildResponse(
                 'expired',
                 $member,
@@ -137,6 +139,14 @@ class CheckInService
             'method'        => $method,
             'manual_reason' => $reason,
         ]);
+
+        if ($method === 'manual') {
+            AuditLogService::log('manual_checkin', $kasir, 'warn', [
+                'member_code' => $member->member_code,
+                'member_name' => $member->user->name,
+                'reason'      => $reason,
+            ]);
+        }
 
         return $this->buildResponse('success', $member, 'Check-in berhasil.', $checkIn);
     }

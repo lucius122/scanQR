@@ -7,6 +7,7 @@ use App\Services\CheckInService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class KasirScanController extends Controller
 {
@@ -110,6 +111,51 @@ class KasirScanController extends Controller
             'branch' => $kasir->branch?->name,
             'total'  => $checkIns->count(),
             'items'  => $checkIns,
+        ]);
+    }
+
+    /*
+     * GET /api/kasir/visitors/export?date=YYYY-MM-DD
+     *
+     * Export CSV pengunjung hari ini (atau tanggal tertentu) di cabang kasir.
+     * BOM UTF-8 di awal agar Excel Indonesia bisa baca karakter khusus.
+     */
+    public function exportCsv(Request $request): Response
+    {
+        if ($request->user()->role !== 'kasir') {
+            abort(403, 'Endpoint ini hanya untuk kasir.');
+        }
+
+        $kasir    = $request->user();
+        $date     = $request->query('date') ? Carbon::parse($request->query('date')) : Carbon::today();
+        $filename = 'pengunjung-' . $date->format('Y-m-d') . '.csv';
+
+        $checkIns = CheckIn::with(['member.user'])
+            ->where('branch_id', $kasir->branch_id)
+            ->whereDate('checked_in_at', $date)
+            ->where('status', 'success')
+            ->orderBy('checked_in_at')
+            ->get();
+
+        return response()->streamDownload(function () use ($checkIns) {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, ['No', 'Member Code', 'Nama', 'Tier', 'Waktu Check-in (WIB)', 'Metode', 'Status', 'Alasan Manual']);
+            foreach ($checkIns as $i => $ci) {
+                fputcsv($handle, [
+                    $i + 1,
+                    $ci->member->member_code,
+                    $ci->member->user->name,
+                    $ci->member->tier,
+                    $ci->checked_in_at->format('H:i:s') . ' WIB',
+                    $ci->method === 'manual' ? 'Manual' : 'QR Scan',
+                    $ci->status,
+                    $ci->manual_reason ?? '',
+                ]);
+            }
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 }

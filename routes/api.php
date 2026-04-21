@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\AdminAuditLogController;
+use App\Http\Controllers\AdminMemberController;
+use App\Http\Controllers\AdminOverviewController;
+use App\Http\Controllers\AdminReportController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\KasirScanController;
 use App\Http\Controllers\MemberQrController;
@@ -44,4 +48,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/kasir/scan', [KasirScanController::class, 'scan']);
     Route::post('/kasir/check-in/manual', [KasirScanController::class, 'manualCheckIn']);
     Route::get('/kasir/visitors/today', [KasirScanController::class, 'todayVisitors']);
+    Route::get('/kasir/visitors/export', [KasirScanController::class, 'exportCsv']);
+
+    // Admin — overview & KPI (role: admin)
+    Route::middleware('admin-only')->group(function () {
+        Route::get('/admin/overview', [AdminOverviewController::class, 'index']);
+        Route::get('/admin/overview/traffic', [AdminOverviewController::class, 'traffic']);
+
+        Route::get('/admin/reports/attendance', [AdminReportController::class, 'attendance']);
+        Route::get('/admin/reports/attendance/export', [AdminReportController::class, 'exportCsv']);
+        Route::get('/admin/reports/branches', [AdminReportController::class, 'branches']);
+
+        Route::get('/admin/audit-logs', [AdminAuditLogController::class, 'index']);
+        Route::get('/admin/audit-logs/stats', [AdminAuditLogController::class, 'stats']);
+
+        Route::get('/admin/members', [AdminMemberController::class, 'index']);
+        Route::post('/admin/members/{id}/regenerate-qr', [AdminMemberController::class, 'regenerateQr']);
+        Route::patch('/admin/members/{id}/status', [AdminMemberController::class, 'updateStatus']);
+    });
 });

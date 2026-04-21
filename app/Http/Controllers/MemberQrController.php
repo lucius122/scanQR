@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AuditLogService;
 use App\Services\QrService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -61,7 +62,11 @@ class MemberQrController extends Controller
 
         $member->update(['qr_token' => Str::random(64)]);
 
-        // fresh() reload dari DB untuk memastikan qr_token yang dipakai adalah yang baru
+        AuditLogService::log('qr_regenerated', $user, 'info', [
+            'member_code'    => $member->member_code,
+            'regenerated_by' => 'member',
+        ]);
+
         return response()->json($this->buildResponse($user, $member->fresh()));
     }
 

@@ -6,9 +6,6 @@ import { Avatar, Badge, Logo } from '../ui'
 import * as I from '../icons'
 import { cls } from '../../lib/utils'
 
-/* Nav items per role — IDs must match tab IDs used in each dashboard.
- * Optional `href` field: navigates to a route instead of switching tabs.
- * Items with `href` are rendered as <Link> in the bottom nav. */
 const ROLE_NAVS = {
   kasir: [
     { id: 'scan',     label: 'Scan QR',      icon: <I.Scan     size={18} /> },
@@ -19,97 +16,249 @@ const ROLE_NAVS = {
     { id: 'qr', label: 'QR Saya', icon: <I.Qr size={18} /> },
   ],
   admin: [
-    { id: 'overview', label: 'Overview', icon: <I.Home  size={18} /> },
-    { id: 'users',    label: 'Users',    icon: <I.Users size={18} /> },
+    { id: 'overview', label: 'Overview',  icon: <I.Home   size={18} /> },
+    { id: 'reports',  label: 'Laporan',   icon: <I.Chart  size={18} /> },
+    { id: 'audit',    label: 'Audit Log', icon: <I.Shield size={18} /> },
+    { id: 'members',  label: 'Members',   icon: <I.Users  size={18} /> },
   ],
   trainer: [
-    { id: 'home',    label: 'Home',    icon: <I.Home      size={18} /> },
-    { id: 'members', label: 'Members', icon: <I.Users     size={18} /> },
-    { id: 'sched',   label: 'Schedule',icon: <I.Calendar  size={18} /> },
+    { id: 'home',    label: 'Home',     icon: <I.Home     size={18} /> },
+    { id: 'members', label: 'Members',  icon: <I.Users    size={18} /> },
+    { id: 'sched',   label: 'Schedule', icon: <I.Calendar size={18} /> },
   ],
 }
 
 const ROLE_LABEL = { kasir: 'Kasir', member: 'Member', admin: 'Admin', trainer: 'Trainer' }
+
+/* ── Sidebar collapse hook — persists ke localStorage ── */
+function useSidebarCollapse() {
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem('forge_sidebar_collapsed') === 'true',
+  )
+  function toggle() {
+    setCollapsed(prev => {
+      const next = !prev
+      localStorage.setItem('forge_sidebar_collapsed', String(next))
+      return next
+    })
+  }
+  return { collapsed, toggle }
+}
+
+/* ── Nav item component — defined outside ShellInner untuk stabilitas ref ── */
+function SidebarItem({ n, collapsed, isActive, onActivate, onHover, onLeave }) {
+  const activeCls = isActive
+    ? 'bg-pop text-ink'
+    : 'text-white/70 hover:text-white hover:bg-white/5'
+
+  const sharedCls = cls(
+    'transition-colors rounded-md',
+    collapsed
+      ? 'w-full h-10 flex items-center justify-center'
+      : 'w-full h-10 px-3 flex items-center gap-3 font-semibold text-[13px]',
+    activeCls,
+  )
+
+  const handlers = {
+    onMouseEnter: onHover ? (e) => onHover(e, n.label) : undefined,
+    onMouseLeave: onLeave,
+  }
+
+  if (n.href) {
+    return (
+      <Link to={n.href} className={sharedCls} {...handlers}>
+        {n.icon}
+        {!collapsed && <span className="truncate">{n.label}</span>}
+      </Link>
+    )
+  }
+  return (
+    <button onClick={onActivate} className={sharedCls} {...handlers}>
+      {n.icon}
+      {!collapsed && <span className="truncate">{n.label}</span>}
+    </button>
+  )
+}
 
 function ShellInner({ children }) {
   const { user, logout }            = useAuth()
   const { activeTab, setActiveTab } = useShellTab()
   const navigate                    = useNavigate()
   const location                    = useLocation()
-  const [mobileMenu,    setMobileMenu]    = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
+  const { collapsed, toggle }            = useSidebarCollapse()
+
+  /*
+   * Tooltip untuk collapsed sidebar.
+   * Dirender sebagai position:fixed di luar <aside> sehingga tidak
+   * pernah ter-clip oleh overflow:hidden sidebar manapun.
+   */
+  const [tip, setTip] = useState(null) // { label: string, top: number }
 
   const nav       = user ? (ROLE_NAVS[user.role] ?? []) : []
   const roleName  = ROLE_LABEL[user?.role] ?? ''
   const firstName = user?.name?.split(' ')[0] ?? ''
 
-  /* Set first tab on mount / role change */
   useEffect(() => {
     if (nav.length > 0) setActiveTab(nav[0].id)
   }, [user?.role]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Sembunyikan tooltip saat sidebar expand */
+  useEffect(() => {
+    if (!collapsed) setTip(null)
+  }, [collapsed])
 
   async function handleLogout() {
     await logout()
     navigate('/login', { replace: true })
   }
 
-  function openLogoutConfirm() {
-    setMobileMenu(false)
-    setConfirmLogout(true)
+  function showTip(e, label) {
+    if (!collapsed) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    setTip({ label, top: rect.top + rect.height / 2 })
   }
-
-  const NavItem = ({ n, onClick, size = 'sm' }) => (
-    <button
-      key={n.id}
-      onClick={() => { setActiveTab(n.id); onClick?.() }}
-      className={cls(
-        'w-full flex items-center gap-3 rounded-md font-semibold transition',
-        size === 'sm' ? 'h-10 px-3 text-[13px]' : 'h-11 px-3 text-[14px]',
-        activeTab === n.id
-          ? 'bg-pop text-ink'
-          : 'text-white/70 hover:text-white hover:bg-white/5',
-      )}
-    >
-      {n.icon}{n.label}
-    </button>
-  )
 
   return (
     <div className="min-h-screen bg-bone flex">
 
-      {/* ── Desktop sidebar ── */}
-      <aside className="hidden lg:flex flex-col w-[220px] xl:w-[240px] bg-ink on-dark text-white shrink-0 sticky top-0 h-screen">
-        <div className="p-5 hairline-b">
-          <Logo size={30} on="dark" />
-        </div>
+      {/* ── Sidebar wrapper — flex item dengan width transition ── */}
+      {/*
+       * Wrapper (bukan aside) yang menjadi flex item dan mengontrol lebar.
+       * Aside di dalamnya adalah absolute inset-0 + overflow-hidden SELALU
+       * → tidak ada horizontal scroll dari text overflow.
+       * Toggle button adalah sibling dari aside (bukan child) → tidak
+       * ter-clip oleh overflow:hidden aside.
+       */}
+      <div className={cls(
+        'hidden lg:block relative shrink-0 sticky top-0 h-screen z-40',
+        'transition-[width] duration-200 ease-in-out',
+        collapsed ? 'w-16' : 'w-[220px] xl:w-[240px]',
+      )}>
 
-        <div className="px-3 py-4 flex-1 overflow-y-auto">
-          <div className="micro text-white/40 px-3 mb-2">{roleName.toUpperCase()} MENU</div>
-          <nav className="space-y-1">
-            {nav.map(n => <NavItem key={n.id} n={n} />)}
-          </nav>
-        </div>
+        {/* Sidebar — overflow-hidden SELALU, tidak pernah overflow-visible */}
+        <aside className="absolute inset-0 overflow-hidden bg-ink on-dark text-white flex flex-col">
 
-        {/* User profile + logout */}
-        <div className="p-3 hairline-t">
-          <div className="flex items-center gap-3 p-2">
-            <Avatar name={user?.name ?? '?'} size={36} accent />
-            <div className="flex-1 min-w-0">
-              <div className="font-bold text-[13px] truncate">{user?.name}</div>
-              <div className="mono text-[10px] text-white/50 truncate">
-                {roleName} · {user?.branch?.name ?? 'FORGE'}
+          {/* Header */}
+          <div className={cls(
+            'hairline-b flex shrink-0',
+            collapsed ? 'justify-center py-[18px] px-2' : 'items-center p-4',
+          )}>
+            {collapsed ? (
+              <div className="w-9 h-9 bg-pop rounded-lg flex items-center justify-center">
+                <span className="font-black text-ink text-base leading-none">F</span>
               </div>
-            </div>
-            <button
-              onClick={openLogoutConfirm}
-              title="Logout"
-              className="w-8 h-8 rounded-md hover:bg-white/10 flex items-center justify-center"
-            >
-              <I.Logout size={16} />
-            </button>
+            ) : (
+              <Logo size={28} on="dark" />
+            )}
           </div>
+
+          {/* Nav */}
+          <div className={cls('py-4 flex-1 overflow-y-auto overflow-x-hidden', collapsed ? 'px-2' : 'px-3')}>
+            {!collapsed && (
+              <div className="micro text-white/40 px-3 mb-2">{roleName.toUpperCase()} MENU</div>
+            )}
+            <nav className="space-y-1">
+              {nav.map(n => (
+                <SidebarItem
+                  key={n.id}
+                  n={n}
+                  collapsed={collapsed}
+                  isActive={
+                    n.href
+                      ? location.pathname === n.href
+                      : activeTab === n.id
+                  }
+                  onActivate={() => setActiveTab(n.id)}
+                  onHover={collapsed ? showTip : undefined}
+                  onLeave={collapsed ? () => setTip(null) : undefined}
+                />
+              ))}
+            </nav>
+          </div>
+
+          {/* Profile + logout */}
+          <div className="hairline-t shrink-0">
+            {collapsed ? (
+              /* Collapsed — hanya avatar + logout icon, TIDAK ada text di DOM */
+              <div className="flex flex-col items-center gap-2 py-3 px-2">
+                <div
+                  onMouseEnter={e => showTip(e, `${user?.name ?? '?'} · ${roleName}`)}
+                  onMouseLeave={() => setTip(null)}
+                  className="cursor-default"
+                >
+                  <Avatar name={user?.name ?? '?'} size={34} accent />
+                </div>
+                <button
+                  onClick={() => setConfirmLogout(true)}
+                  onMouseEnter={e => showTip(e, 'Logout')}
+                  onMouseLeave={() => setTip(null)}
+                  className="w-8 h-8 rounded-md hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors"
+                >
+                  <I.Logout size={15} />
+                </button>
+              </div>
+            ) : (
+              /* Expanded — avatar + nama + role + logout */
+              <div className="flex items-center gap-3 p-3">
+                <Avatar name={user?.name ?? '?'} size={36} accent />
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[13px] truncate">{user?.name}</div>
+                  <div className="mono text-[10px] text-white/50 truncate">
+                    {roleName} · {user?.branch?.name ?? 'FORGE'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setConfirmLogout(true)}
+                  title="Logout"
+                  className="w-8 h-8 rounded-md hover:bg-white/10 flex items-center justify-center shrink-0"
+                >
+                  <I.Logout size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/*
+         * Toggle button — sibling dari aside, BUKAN child-nya.
+         * Karena aside yang punya overflow:hidden, bukan wrapper div ini,
+         * tombol ini TIDAK ter-clip walaupun translate-x-1/2 keluar ke kanan.
+         * top-[22px] sejajar dengan tengah logo F di header.
+         */}
+        <button
+          onClick={toggle}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={cls(
+            'absolute top-[22px] right-0 translate-x-1/2 z-50',
+            'w-7 h-7 rounded-full shadow-md',
+            'bg-pop hover:bg-pop-2 text-ink',
+            'flex items-center justify-center',
+            'ring-2 ring-ink/10',
+            'transition-transform duration-150 hover:scale-110',
+          )}
+        >
+          {collapsed
+            ? <I.ChevronsRight size={14} />
+            : <I.ChevronsLeft  size={14} />
+          }
+        </button>
+      </div>
+
+      {/* Fixed tooltip — position:fixed, tidak pernah ter-clip apapun */}
+      {collapsed && tip && (
+        <div
+          className={cls(
+            'fixed pointer-events-none z-[200]',
+            'bg-ink text-white text-xs font-semibold',
+            'px-2.5 py-1.5 rounded-md whitespace-nowrap',
+            'shadow-lg border border-white/10',
+          )}
+          style={{ top: tip.top, left: 76, transform: 'translateY(-50%)' }}
+        >
+          {tip.label}
         </div>
-      </aside>
+      )}
 
       {/* ── Main column ── */}
       <div className="flex-1 min-w-0 flex flex-col">
@@ -118,32 +267,27 @@ function ShellInner({ children }) {
         <header className="sticky top-0 z-30 bg-bone/90 backdrop-blur hairline-b">
           <div className="flex items-center justify-between px-4 md:px-6 h-14 lg:h-16 gap-3">
 
-            {/* Left — hamburger + logo (mobile) | breadcrumb (desktop) */}
-            <div className="flex items-center gap-3 lg:hidden">
-              <button
-                onClick={() => setMobileMenu(true)}
-                className="w-9 h-9 rounded-md hairline bg-white flex items-center justify-center"
-              >
-                <I.Menu size={18} />
-              </button>
+            {/* Logo — mobile/tablet only */}
+            <div className="flex items-center lg:hidden">
               <Logo size={24} />
             </div>
+            {/* Breadcrumb — desktop only */}
             <div className="hidden lg:flex items-center gap-3">
               <span className="text-lg font-black tracking-tight">{roleName} dashboard</span>
               <Badge tone="outline">FORGE GYM</Badge>
             </div>
 
-            {/* Right — user avatar */}
+            {/* Right */}
             <div className="flex items-center gap-2">
-              <button className="hidden md:flex items-center gap-2 h-9 px-2 pr-3 rounded-md hairline bg-white cursor-pointer">
+              {/* User chip — tablet only (md–lg) */}
+              <button className="hidden md:flex lg:hidden items-center gap-2 h-9 px-2 pr-3 rounded-md hairline bg-white cursor-pointer">
                 <Avatar name={user?.name ?? '?'} size={24} />
                 <span className="text-[12px] font-semibold">{firstName}</span>
-                <I.ChevronDown size={14} className="text-ink-4" />
               </button>
-              {/* Mobile logout quick-access */}
+              {/* Logout — mobile & tablet; desktop pakai sidebar */}
               <button
-                onClick={openLogoutConfirm}
-                className="md:hidden w-9 h-9 rounded-md hairline bg-white flex items-center justify-center"
+                onClick={() => setConfirmLogout(true)}
+                className="lg:hidden w-9 h-9 rounded-md hairline bg-white flex items-center justify-center"
                 title="Logout"
               >
                 <I.Logout size={16} />
@@ -157,23 +301,11 @@ function ShellInner({ children }) {
         </main>
       </div>
 
-      {/* ── Mobile bottom nav (shown only if role has >1 item) ── */}
+      {/* ── Mobile bottom nav ── */}
       {nav.length > 1 && (
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white hairline-t safe-area-pb">
           <div className="grid" style={{ gridTemplateColumns: `repeat(${nav.length}, 1fr)` }}>
             {nav.map(n => {
-              /*
-               * Nav item dengan `href` → Link ke route berbeda (misal: /kasir/register-member).
-               * Active state: cek pathname, bukan activeTab.
-               * Nav item tanpa `href` → tombol biasa yang switch tab dalam halaman.
-               */
-              /*
-               * Non-href items hanya aktif jika:
-               *   1. Kita sedang di halaman dashboard base (mis. /kasir, bukan /kasir/register-member)
-               *   2. AND activeTab cocok dengan id item ini
-               * Tanpa kondisi (1), saat pindah ke sub-route, tab sebelumnya tetap terlihat aktif
-               * bersamaan dengan href item → double indicator.
-               */
               const basePath = `/${user?.role}`
               const isActive = n.href
                 ? location.pathname === n.href
@@ -202,13 +334,7 @@ function ShellInner({ children }) {
                   key={n.id}
                   onClick={() => {
                     setActiveTab(n.id)
-                    /*
-                     * Jika user sedang di sub-route (misal /kasir/register-member),
-                     * navigate kembali ke halaman utama role (/kasir, /member, dll)
-                     * supaya tab-switch benar-benar mengubah tampilan.
-                     */
-                    const base = `/${user?.role}`
-                    if (location.pathname !== base) navigate(base)
+                    if (location.pathname !== `/${user?.role}`) navigate(`/${user?.role}`)
                   }}
                   className={itemCls}
                 >
@@ -256,42 +382,6 @@ function ShellInner({ children }) {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ── Mobile drawer ── */}
-      {mobileMenu && (
-        <div
-          className="lg:hidden fixed inset-0 z-50 bg-ink/60"
-          onClick={() => setMobileMenu(false)}
-        >
-          <aside
-            className="absolute left-0 top-0 bottom-0 w-[280px] bg-ink on-dark text-white flex flex-col"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="p-5 hairline-b flex items-center justify-between">
-              <Logo size={28} on="dark" />
-              <button onClick={() => setMobileMenu(false)} className="w-8 h-8 flex items-center justify-center">
-                <I.X size={18} />
-              </button>
-            </div>
-            <div className="px-3 py-4 flex-1 overflow-y-auto">
-              <div className="micro text-white/40 px-3 mb-2">{roleName.toUpperCase()} MENU</div>
-              <nav className="space-y-1">
-                {nav.map(n => (
-                  <NavItem key={n.id} n={n} size="lg" onClick={() => setMobileMenu(false)} />
-                ))}
-              </nav>
-            </div>
-            <div className="p-3 hairline-t">
-              <button
-                onClick={openLogoutConfirm}
-                className="w-full flex items-center gap-3 h-11 px-3 rounded-md text-[14px] font-semibold text-white/70 hover:bg-white/5"
-              >
-                <I.Logout size={18} /> Log out
-              </button>
-            </div>
-          </aside>
         </div>
       )}
     </div>

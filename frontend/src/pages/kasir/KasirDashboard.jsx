@@ -1,24 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+
 import { useAuth } from '../../contexts/AuthContext'
 import { useShellTab } from '../../contexts/ShellContext'
 import api from '../../lib/axios'
+import { formatDateWIB, formatTimeWIB } from '../../lib/datetime'
 import QrScannerCamera from './components/QrScannerCamera'
 import { Avatar, Badge, Button } from '../../components/ui'
 import * as I from '../../components/icons'
 import { cls } from '../../lib/utils'
-
-function formatTime(isoString) {
-  return isoString?.slice(11, 16) ?? '—'
-}
-
-function formatDateID(dateStr) {
-  if (!dateStr) return '—'
-  const [year, month, day] = dateStr.split('-').map(Number)
-  return new Intl.DateTimeFormat('id-ID', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  }).format(new Date(year, month - 1, day))
-}
 
 const TIER_TONE = { Basic: 'outline', Premium: 'pop', VIP: 'ink' }
 
@@ -127,7 +116,7 @@ function ScanResultModal({ result, onConfirm, onClose }) {
               </div>
               <div className="bg-bone-2 rounded-lg p-3">
                 <div className="micro text-ink-4 mb-1">BERLAKU S/D</div>
-                <div className="text-sm font-semibold">{formatDateID(member.expires_date)}</div>
+                <div className="text-sm font-semibold">{formatDateWIB(member.expires_date)}</div>
               </div>
               <div className="bg-bone-2 rounded-lg p-3">
                 <div className="micro text-ink-4 mb-1">SISA HARI</div>
@@ -365,6 +354,11 @@ function TabVisitors() {
       .finally(() => setLoading(false))
   }, [])
 
+  function handleExport() {
+    const today = new Date().toISOString().slice(0, 10)
+    window.open(`/api/kasir/visitors/export?date=${today}`, '_blank')
+  }
+
   return (
     <div>
       {/* Stats row */}
@@ -390,11 +384,17 @@ function TabVisitors() {
 
       {/* Visitor list */}
       <div className="bg-white hairline rounded-xl overflow-hidden">
-        <div className="p-4 flex items-center justify-between hairline-b">
+        <div className="p-4 flex items-center justify-between hairline-b gap-3">
           <div className="font-bold">Pengunjung hari ini</div>
-          {data && (
-            <span className="chip bg-pop text-ink">{data.total} orang</span>
-          )}
+          <div className="flex items-center gap-2">
+            {data && <span className="chip bg-pop text-ink">{data.total} orang</span>}
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-3 h-8 bg-pop hover:bg-pop-2 text-ink text-xs font-bold rounded-lg transition"
+            >
+              <I.Download size={13} /> Export CSV
+            </button>
+          </div>
         </div>
 
         {loading && (
@@ -423,7 +423,7 @@ function TabVisitors() {
                 </div>
                 <Badge tone={TIER_TONE[item.tier] ?? 'outline'}>{item.tier}</Badge>
                 <div className="text-right ml-2 shrink-0">
-                  <div className="mono text-sm font-bold">{item.checked_in_at}</div>
+                  <div className="mono text-sm font-bold">{item.checked_in_at ?? '—'}</div>
                   <div className={cls(
                     'text-[10px] mono',
                     item.method === 'manual' ? 'text-warn' : 'text-ink-4',
@@ -440,48 +440,13 @@ function TabVisitors() {
   )
 }
 
-// ── Tabs definition ────────────────────────────────────────────────────────
-const TABS = [
-  { id: 'scan',     label: 'Scan QR',    icon: <I.Scan  size={16} /> },
-  { id: 'visitors', label: 'Pengunjung', icon: <I.Users size={16} /> },
-]
-
 // ── Main ──────────────────────────────────────────────────────────────────
 export default function KasirDashboard() {
-  const { activeTab, setActiveTab } = useShellTab() ?? {}
+  const { activeTab } = useShellTab() ?? {}
   const tab = activeTab ?? 'scan'
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6 pb-24 lg:pb-6">
-
-      {/*
-       * Tab bar hanya muncul di tablet/desktop (≥768px).
-       * Di mobile navigasi dilakukan lewat bottom nav di Shell
-       * (Scan QR + Pengunjung + Daftar Member).
-       */}
-      <div className="hidden md:block sticky top-14 lg:top-16 z-20 bg-bone -mx-4 md:-mx-6 px-4 md:px-6 pb-3">
-        <div className="flex gap-1 overflow-x-auto no-scrollbar hairline-b -mx-1 px-1">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab?.(t.id)}
-              data-active={tab === t.id}
-              className={cls(
-                'tab-underline flex items-center gap-2 px-3 md:px-4 h-11 text-[13px] font-semibold whitespace-nowrap shrink-0',
-                tab === t.id ? 'text-ink' : 'text-ink-4 hover:text-ink',
-              )}
-            >
-              {t.icon}{t.label}
-            </button>
-          ))}
-          <Link
-            to="/kasir/register-member"
-            className="tab-underline flex items-center gap-2 px-3 md:px-4 h-11 text-[13px] font-semibold whitespace-nowrap shrink-0 text-ink-4 hover:text-ink ml-auto"
-          >
-            <I.UserPlus size={16} /> Daftar Member
-          </Link>
-        </div>
-      </div>
 
       <div className="pt-4 md:pt-5">
         {tab === 'scan'     && <TabScan />}

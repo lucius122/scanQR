@@ -52,4 +52,6 @@ export const MoreH         = (p) => <Icon {...p}><circle cx="5" cy="12" r="1"/><
 export const Filter        = (p) => <Icon {...p}><path d="M22 3H2l8 9.46V19l4 2v-8.54z"/></Icon>
 export const Upload        = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></Icon>
 export const Stop          = (p) => <Icon {...p}><rect x="5" y="5" width="14" height="14" rx="2"/></Icon>
+export const ChevronsLeft  = (p) => <Icon {...p}><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></Icon>
+export const ChevronsRight = (p) => <Icon {...p}><path d="M13 17l5-5-5-5M6 17l5-5-5-5"/></Icon>
 export const UserPlus      = (p) => <Icon {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6"/></Icon>
