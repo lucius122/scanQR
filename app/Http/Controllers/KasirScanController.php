@@ -120,7 +120,7 @@ class KasirScanController extends Controller
      * Export CSV pengunjung hari ini (atau tanggal tertentu) di cabang kasir.
      * BOM UTF-8 di awal agar Excel Indonesia bisa baca karakter khusus.
      */
-    public function exportCsv(Request $request): Response
+    public function exportCsv(Request $request)
     {
         if ($request->user()->role !== 'kasir') {
             abort(403, 'Endpoint ini hanya untuk kasir.');

@@ -42,7 +42,7 @@ class Member extends Model
                  * bersamaan di load tinggi. Untuk skala thesis ini aman; di produksi
                  * gunakan DB sequence atau auto-increment terpisah.
                  */
-                $last = static::where('member_code', 'like', "FG-{$year}-%")
+                $last = static::where('member_code', 'like', "88SG-{$year}-%")
                     ->orderByDesc('id')
                     ->lockForUpdate()
                     ->first();
@@ -51,7 +51,7 @@ class Member extends Model
                     ? ((int) Str::afterLast($last->member_code, '-')) + 1
                     : 1;
 
-                $member->member_code = sprintf('FG-%d-%05d', $year, $nextNum);
+                $member->member_code = sprintf('88SG-%d-%05d', $year, $nextNum);
             }
 
             // Auto-generate qr_token jika belum diisi

@@ -14,8 +14,7 @@ const TIER_TONE = { Basic: 'outline', Premium: 'pop', VIP: 'ink' }
 // ── Status config (untuk label & warna) ──────────────────────────────────
 const STATUS_CFG = {
   success:           { badge: 'ok',      dot: true,  label: '✓ AKTIF',        actionLabel: '✓ Konfirmasi Check-in', actionVariant: 'pop'     },
-  already_checked_in:{ badge: 'warn',    dot: true,  label: 'SUDAH CHECK-IN', actionLabel: '✓ Sudah Ditangani',    actionVariant: 'outline' },
-  expired:           { badge: 'bad',     dot: false, label: '✗ EXPIRED',      actionLabel: '✗ Tolak Masuk',        actionVariant: 'danger'  },
+  expired:           { badge: 'bad',     dot: false, label: '✗ EXPIRED',      actionLabel: null,                   actionVariant: null      },
   invalid:           { badge: 'outline', dot: false, label: 'TIDAK VALID',    actionLabel: null,                   actionVariant: null      },
   invalid_qr:        { badge: 'bad',     dot: false, label: 'QR PALSU',       actionLabel: null,                   actionVariant: null      },
 }
@@ -229,8 +228,6 @@ function TabScan() {
     const status = result?.status
     if (status === 'success') {
       showToast('Check-in berhasil dicatat ✓')
-    } else if (status === 'already_checked_in') {
-      showToast('Sudah tercatat, lanjut scan berikutnya.', 'warn')
     } else if (status === 'expired') {
       showToast('Member ditolak — keanggotaan expired.', 'bad')
     }
@@ -356,7 +353,7 @@ function TabVisitors() {
 
   function handleExport() {
     const today = new Date().toISOString().slice(0, 10)
-    window.open(`/api/kasir/visitors/export?date=${today}`, '_blank')
+    window.location.href = `/api/kasir/visitors/export?date=${today}`
   }
 
   return (

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useShellTab } from '../../contexts/ShellContext'
 import api from '../../lib/axios'
+import { fetchList } from '../../lib/api'
 import { formatDateTimeWIB, formatDateWIB } from '../../lib/datetime'
 import { AreaChart, Avatar, Badge, KPI } from '../../components/ui'
 import * as I from '../../components/icons'
@@ -182,7 +183,7 @@ function TabReports() {
   })
 
   useEffect(() => {
-    api.get('/api/admin/reports/branches').then(r => setBranches(r.data))
+    fetchList('/api/admin/reports/branches').then(setBranches)
   }, [])
 
   useEffect(() => {
@@ -206,7 +207,7 @@ function TabReports() {
   function handleExport() {
     const params = new URLSearchParams({ start_date: applied.startDate, end_date: applied.endDate })
     if (applied.branchId) params.set('branch_id', applied.branchId)
-    window.open(`/api/admin/reports/attendance/export?${params}`, '_blank')
+    window.location.href = `/api/admin/reports/attendance/export?${params}`
   }
 
   return (
@@ -340,6 +341,13 @@ const ACTION_LABEL = {
   member_deactivated:          'Member Deactivated',
   member_reactivated:          'Member Reactivated',
   expired_member_scan_attempt: 'Expired Scan Attempt',
+  branch_created:              'Cabang Dibuat',
+  branch_updated:              'Cabang Diupdate',
+  branch_deactivated:          'Cabang Dinonaktifkan',
+  branch_deleted:              'Cabang Dihapus',
+  tier_price_changed:          'Harga Tier Diubah',
+  user_created_by_admin:       'User Didaftarkan Admin',
+  user_deactivated_by_admin:   'User Dinonaktifkan Admin',
 }
 
 const SEVERITY_CFG = {

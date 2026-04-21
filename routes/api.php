@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\AdminAuditLogController;
+use App\Http\Controllers\AdminBranchController;
 use App\Http\Controllers\AdminMemberController;
 use App\Http\Controllers\AdminOverviewController;
 use App\Http\Controllers\AdminReportController;
+use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\KasirScanController;
 use App\Http\Controllers\MemberQrController;
@@ -22,6 +24,12 @@ Route::get('/ping', fn () => response()->json([
 
 Route::post('/login', [AuthController::class, 'login']);
 
+// Branches — dropdown publik (hanya cabang aktif, tidak sensitif, tidak butuh auth)
+// Ini memastikan dropdown form selalu bisa diakses tanpa masalah Sanctum SPA session timing
+Route::get('/branches/options',      [AdminBranchController::class, 'options']);
+Route::get('/branches',              [AdminBranchController::class, 'dropdown']);
+Route::get('/branches/{id}/tiers',   [AdminBranchController::class, 'tiersByBranch']);
+
 Route::middleware('auth:sanctum')->group(function () {
 
     // Auth
@@ -32,17 +40,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/member/qr', [MemberQrController::class, 'show']);
     Route::post('/member/qr/regenerate', [MemberQrController::class, 'regenerate']);
 
-    // Branches — list untuk dropdown form pendaftaran
-    Route::get('/branches', function () {
-        return response()->json(
-            \App\Models\Branch::where('status', 'active')
-                ->orderBy('name')
-                ->get(['id', 'name'])
-        );
-    });
-
     // Member — registration (role: kasir, admin)
     Route::post('/members', [MemberRegistrationController::class, 'store']);
+
 
     // Kasir — scan & check-in (role: kasir)
     Route::post('/kasir/scan', [KasirScanController::class, 'scan']);
@@ -65,5 +65,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/members', [AdminMemberController::class, 'index']);
         Route::post('/admin/members/{id}/regenerate-qr', [AdminMemberController::class, 'regenerateQr']);
         Route::patch('/admin/members/{id}/status', [AdminMemberController::class, 'updateStatus']);
+
+        // Admin — kelola cabang
+        Route::get('/admin/branches', [AdminBranchController::class, 'index']);
+        Route::post('/admin/branches', [AdminBranchController::class, 'store']);
+        Route::put('/admin/branches/{id}', [AdminBranchController::class, 'update']);
+        Route::patch('/admin/branches/{id}/status', [AdminBranchController::class, 'updateStatus']);
+        Route::delete('/admin/branches/{id}', [AdminBranchController::class, 'destroy']);
+
+        // Admin — kelola user (list, edit, toggle status, reset password, daftarkan)
+        Route::get('/admin/users', [AdminUserController::class, 'index']);
+        Route::post('/admin/users', [AdminUserController::class, 'store']);
+        Route::put('/admin/users/{id}', [AdminUserController::class, 'update']);
+        Route::patch('/admin/users/{id}/status', [AdminUserController::class, 'updateStatus']);
+        Route::post('/admin/users/{id}/reset-password', [AdminUserController::class, 'resetPassword']);
     });
 });

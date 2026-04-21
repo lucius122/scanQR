@@ -16,10 +16,12 @@ const ROLE_NAVS = {
     { id: 'qr', label: 'QR Saya', icon: <I.Qr size={18} /> },
   ],
   admin: [
-    { id: 'overview', label: 'Overview',  icon: <I.Home   size={18} /> },
-    { id: 'reports',  label: 'Laporan',   icon: <I.Chart  size={18} /> },
-    { id: 'audit',    label: 'Audit Log', icon: <I.Shield size={18} /> },
-    { id: 'members',  label: 'Members',   icon: <I.Users  size={18} /> },
+    { id: 'overview',  label: 'Overview',    icon: <I.Home     size={18} /> },
+    { id: 'members',   label: 'Members',     icon: <I.Users    size={18} /> },
+    { id: 'branches',  label: 'Cabang',      icon: <I.Building size={18} />, href: '/admin/branches' },
+    { id: 'users',     label: 'Staff',       icon: <I.UserPlus size={18} />, href: '/admin/users' },
+    { id: 'reports',   label: 'Laporan',     icon: <I.Chart    size={18} /> },
+    { id: 'audit',     label: 'Audit Log',   icon: <I.Shield   size={18} /> },
   ],
   trainer: [
     { id: 'home',    label: 'Home',     icon: <I.Home     size={18} /> },
@@ -33,12 +35,12 @@ const ROLE_LABEL = { kasir: 'Kasir', member: 'Member', admin: 'Admin', trainer: 
 /* ── Sidebar collapse hook — persists ke localStorage ── */
 function useSidebarCollapse() {
   const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem('forge_sidebar_collapsed') === 'true',
+    () => localStorage.getItem('88sg_sidebar_collapsed') === 'true',
   )
   function toggle() {
     setCollapsed(prev => {
       const next = !prev
-      localStorage.setItem('forge_sidebar_collapsed', String(next))
+      localStorage.setItem('88sg_sidebar_collapsed', String(next))
       return next
     })
   }
@@ -146,7 +148,7 @@ function ShellInner({ children }) {
           )}>
             {collapsed ? (
               <div className="w-9 h-9 bg-pop rounded-lg flex items-center justify-center">
-                <span className="font-black text-ink text-base leading-none">F</span>
+                <span className="font-black text-ink text-xs leading-none">88</span>
               </div>
             ) : (
               <Logo size={28} on="dark" />
@@ -167,9 +169,12 @@ function ShellInner({ children }) {
                   isActive={
                     n.href
                       ? location.pathname === n.href
-                      : activeTab === n.id
+                      : location.pathname === `/${user?.role}` && activeTab === n.id
                   }
-                  onActivate={() => setActiveTab(n.id)}
+                  onActivate={() => {
+                    setActiveTab(n.id)
+                    if (location.pathname !== `/${user?.role}`) navigate(`/${user?.role}`)
+                  }}
                   onHover={collapsed ? showTip : undefined}
                   onLeave={collapsed ? () => setTip(null) : undefined}
                 />
@@ -205,7 +210,7 @@ function ShellInner({ children }) {
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-[13px] truncate">{user?.name}</div>
                   <div className="mono text-[10px] text-white/50 truncate">
-                    {roleName} · {user?.branch?.name ?? 'FORGE'}
+                    {roleName} · {user?.branch?.name ?? 'HQ'}
                   </div>
                 </div>
                 <button
@@ -229,18 +234,14 @@ function ShellInner({ children }) {
         <button
           onClick={toggle}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={cls(
-            'absolute top-[22px] right-0 translate-x-1/2 z-50',
-            'w-7 h-7 rounded-full shadow-md',
-            'bg-pop hover:bg-pop-2 text-ink',
-            'flex items-center justify-center',
-            'ring-2 ring-ink/10',
-            'transition-transform duration-150 hover:scale-110',
-          )}
+          className="absolute top-6 right-0 translate-x-1/2 w-5 h-5
+                     bg-white hover:bg-bone-2 text-ink border border-ink/10
+                     rounded-full flex items-center justify-center shadow-sm z-50
+                     transition-all"
         >
           {collapsed
-            ? <I.ChevronsRight size={14} />
-            : <I.ChevronsLeft  size={14} />
+            ? <I.ChevronsRight size={12} />
+            : <I.ChevronsLeft  size={12} />
           }
         </button>
       </div>
@@ -274,7 +275,7 @@ function ShellInner({ children }) {
             {/* Breadcrumb — desktop only */}
             <div className="hidden lg:flex items-center gap-3">
               <span className="text-lg font-black tracking-tight">{roleName} dashboard</span>
-              <Badge tone="outline">FORGE GYM</Badge>
+              <Badge tone="outline">88 STRONG GYM</Badge>
             </div>
 
             {/* Right */}

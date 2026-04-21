@@ -55,3 +55,6 @@ export const Stop          = (p) => <Icon {...p}><rect x="5" y="5" width="14" he
 export const ChevronsLeft  = (p) => <Icon {...p}><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></Icon>
 export const ChevronsRight = (p) => <Icon {...p}><path d="M13 17l5-5-5-5M6 17l5-5-5-5"/></Icon>
 export const UserPlus      = (p) => <Icon {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6"/></Icon>
+export const EyeOff        = (p) => <Icon {...p}><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22"/><path d="M10.73 10.73A3 3 0 0 0 14.82 14"/></Icon>
+export const Copy          = (p) => <Icon {...p}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></Icon>
+export const RefreshCw     = (p) => <Icon {...p}><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></Icon>

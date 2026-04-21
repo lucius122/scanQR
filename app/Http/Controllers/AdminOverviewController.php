@@ -73,17 +73,28 @@ class AdminOverviewController extends Controller
         $period = (int) $request->query('period', 6);
         if (!in_array($period, [3, 6, 12])) $period = 6;
 
+        $from = Carbon::now()->subMonths($period - 1)->startOfMonth();
+
+        /*
+         * Satu GROUP BY query — menggantikan N query terpisah per bulan.
+         * Hasilnya berupa map 'YYYY-MM' → total, lalu di-fill per bulan
+         * termasuk bulan dengan 0 check-in yang tidak muncul di GROUP BY.
+         */
+        $rows = CheckIn::selectRaw("DATE_FORMAT(checked_in_at, '%Y-%m') as month_key, COUNT(*) as total")
+            ->where('status', 'success')
+            ->where('checked_in_at', '>=', $from)
+            ->groupBy('month_key')
+            ->orderBy('month_key')
+            ->pluck('total', 'month_key');
+
         $labels = [];
         $values = [];
 
         for ($i = $period - 1; $i >= 0; $i--) {
-            $month = Carbon::now()->subMonths($i)->startOfMonth();
-            $end   = $month->copy()->endOfMonth();
-
+            $month    = Carbon::now()->subMonths($i)->startOfMonth();
+            $key      = $month->format('Y-m');
             $labels[] = $month->translatedFormat('M Y') ?: $month->format('M Y');
-            $values[] = CheckIn::where('status', 'success')
-                ->whereBetween('checked_in_at', [$month, $end])
-                ->count();
+            $values[] = (int) ($rows[$key] ?? 0);
         }
 
         return response()->json([

@@ -22,7 +22,28 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Aktifkan Sanctum stateful authentication untuk SPA
         $middleware->statefulApi();
+
+        /*
+         * Override redirect unauthenticated untuk API routes.
+         * Tanpa ini, middleware Authenticate akan mencoba redirect ke named route 'login'
+         * yang tidak terdefinisi di API, menyebabkan error 500 "Route [login] not defined".
+         * Dengan ini, semua API request yang tidak terautentikasi mendapat JSON 401.
+         */
+        $middleware->redirectGuestsTo(function (\Illuminate\Http\Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return null; // null = don't redirect, throw unauthenticated exception as JSON
+            }
+            return route('login');
+        });
     })
+
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        /*
+         * Pastikan semua API routes mengembalikan JSON saat unauthenticated/unauthorized,
+         * bukan redirect ke route 'login' yang tidak didefinisikan.
+         */
+        $exceptions->shouldRenderJsonWhen(
+            fn (\Illuminate\Http\Request $request, \Throwable $e) =>
+                $request->is('api/*') || $request->expectsJson()
+        );
     })->create();

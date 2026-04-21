@@ -43,8 +43,15 @@ class MemberRegistrationController extends Controller
             'photo'           => ['nullable', 'image', 'max:2048'],
             'branch_id'       => ['required', 'exists:branches,id'],
             'tier'            => ['required', Rule::in(['Basic', 'Premium', 'VIP'])],
-            'duration_months' => ['required', 'integer', 'min:1'],
+            'duration'        => ['required', Rule::in(['1d', '1w', '1m', '3m'])],
         ]);
+
+        $expiresDate = match ($data['duration']) {
+            '1d' => now()->addDay(),
+            '1w' => now()->addWeek(),
+            '1m' => now()->addMonth(),
+            '3m' => now()->addMonths(3),
+        };
 
         /*
          * Foto di-store sebelum transaction DB dimulai.
@@ -57,7 +64,7 @@ class MemberRegistrationController extends Controller
             : null;
 
         try {
-            [$user, $member] = DB::transaction(function () use ($data, $photoPath) {
+            [$user, $member] = DB::transaction(function () use ($data, $photoPath, $expiresDate) {
                 $user = User::create([
                     'name'      => $data['name'],
                     'email'     => $data['email'],
@@ -70,16 +77,16 @@ class MemberRegistrationController extends Controller
                 ]);
 
                 /*
-                 * member_code  → auto-generate: "FG-2026-00001" via Member::booted()
+                 * member_code  → auto-generate: "88SG-2026-00001" via Member::booted()
                  * qr_token     → auto-generate: Str::random(64) via Member::booted()
                  * joined_date  → hari ini
-                 * expires_date → hari ini + duration_months bulan
+                 * expires_date → dihitung dari duration preset
                  */
                 $member = Member::create([
                     'user_id'      => $user->id,
                     'tier'         => $data['tier'],
                     'joined_date'  => now()->toDateString(),
-                    'expires_date' => now()->addMonths((int) $data['duration_months'])->toDateString(),
+                    'expires_date' => $expiresDate->toDateString(),
                 ]);
 
                 return [$user, $member];

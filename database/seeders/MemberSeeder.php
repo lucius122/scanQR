@@ -24,24 +24,24 @@ class MemberSeeder extends Seeder
         $members = [
             [
                 'email'        => 'rania@mail.test',
-                'member_code'  => "FG-{$year}-00001",
+                'member_code'  => "88SG-{$year}-00001",
                 'tier'         => 'Premium',
                 'joined_date'  => now()->subMonths(3)->toDateString(),
-                'expires_date' => now()->addMonths(3)->toDateString(), // aktif 3 bulan ke depan
+                'expires_date' => now()->addMonths(3)->toDateString(),
             ],
             [
                 'email'        => 'raka@mail.test',
-                'member_code'  => "FG-{$year}-00002",
+                'member_code'  => "88SG-{$year}-00002",
                 'tier'         => 'Basic',
                 'joined_date'  => now()->subMonth()->toDateString(),
-                'expires_date' => now()->addMonths(2)->toDateString(), // aktif 2 bulan ke depan
+                'expires_date' => now()->addMonths(2)->toDateString(),
             ],
             [
                 'email'        => 'expired@mail.test',
-                'member_code'  => "FG-{$year}-00003",
+                'member_code'  => "88SG-{$year}-00003",
                 'tier'         => 'Premium',
                 'joined_date'  => now()->subMonths(4)->toDateString(),
-                'expires_date' => now()->subDay()->toDateString(), // expired kemarin
+                'expires_date' => now()->subDay()->toDateString(),
             ],
         ];
 
