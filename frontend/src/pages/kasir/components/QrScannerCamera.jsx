@@ -1,66 +1,78 @@
 import { useEffect, useRef, useState } from 'react'
-import { BrowserMultiFormatReader } from '@zxing/browser'
-import { NotFoundException } from '@zxing/library'
+import QrScanner from 'qr-scanner'
 
 /*
- * QrScannerCamera — komponen kamera live untuk scan QR.
+ * QrScannerCamera — kamera live untuk scan QR.
  *
  * Props:
  *   onScan(text)  → dipanggil SEKALI saat QR berhasil terbaca
- *   active        → boolean, false = hentikan kamera (saat menunggu hasil API)
+ *   active        → boolean, false = hentikan kamera
  *
- * Cara kerja @zxing:
- *   BrowserMultiFormatReader terus membaca frame dari video element.
- *   Saat QR ditemukan, callback dipanggil dengan hasil.
- *   NotFoundException diabaikan (artinya frame saat ini tidak ada QR — normal).
- *
- * React 18 StrictMode menjalankan effect DUA KALI (mount → unmount → mount).
- * Kita handle ini dengan `controls` variable di dalam effect dan cleanup function.
+ * Menggunakan qr-scanner (Nimiq) — lebih cepat dari @zxing karena:
+ *   1. Decoding di WebWorker (tidak block main thread)
+ *   2. Khusus QR code saja (tidak coba decode semua format barcode)
+ *   3. Resolusi kamera dikunci 720p — sweet spot antara kualitas & performa
  */
 export default function QrScannerCamera({ onScan, active = true }) {
-  const videoRef    = useRef(null)
-  const scannedRef  = useRef(false)   // mencegah callback ganda dari frame berurutan
+  const videoRef   = useRef(null)
+  const scannerRef = useRef(null)
+  const scannedRef = useRef(false)
   const [error, setError] = useState(null)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
     if (!active) return
 
-    let controls = null
+    const videoElem = videoRef.current
+    if (!videoElem) return
+
     scannedRef.current = false
 
-    const reader = new BrowserMultiFormatReader()
+    const scanner = new QrScanner(
+      videoElem,
+      (result) => {
+        if (scannedRef.current) return
+        scannedRef.current = true
+        onScan(result.data)
+      },
+      {
+        highlightScanRegion: false,
+        highlightCodeOutline: false,
+        maxScansPerSecond: 15,
+        preferredCamera: 'environment',
+        returnDetailedScanResult: true,
+        videoConstraints: {
+          width:     { ideal: 1280 },
+          height:    { ideal: 720  },
+          frameRate: { ideal: 30, min: 15 },
+        },
+      },
+    )
 
-    reader
-      .decodeFromVideoDevice(null, videoRef.current, (result, err) => {
-        if (result && !scannedRef.current) {
-          scannedRef.current = true
-          onScan(result.getText())
-        }
-        // NotFoundException = tidak ada QR di frame saat ini — bukan error
-        if (err && !(err instanceof NotFoundException)) {
-          console.warn('[ZXing]', err.message)
-        }
-      })
-      .then(c => {
-        controls = c
+    scannerRef.current = scanner
+
+    scanner.start()
+      .then(() => {
         setReady(true)
         setError(null)
       })
       .catch(err => {
-        const msg = err?.name === 'NotAllowedError'
-          ? 'Izin kamera ditolak. Aktifkan akses kamera di pengaturan browser.'
-          : err?.name === 'NotFoundError'
-          ? 'Kamera tidak ditemukan di perangkat ini.'
-          : 'Kamera tidak bisa diakses. Coba refresh halaman.'
+        const msg =
+          err?.name === 'NotAllowedError'
+            ? 'Izin kamera ditolak. Aktifkan akses kamera di pengaturan browser.'
+            : err?.name === 'NotFoundError'
+            ? 'Kamera tidak ditemukan di perangkat ini.'
+            : 'Kamera tidak bisa diakses. Coba refresh halaman.'
         setError(msg)
       })
 
     return () => {
-      controls?.stop()
+      scanner.stop()
+      scanner.destroy()
+      scannerRef.current = null
       setReady(false)
     }
-  }, [active]) // re-run saat active berubah
+  }, [active])
 
   if (error) {
     return (
@@ -100,17 +112,10 @@ export default function QrScannerCamera({ onScan, active = true }) {
       {ready && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative w-56 h-56">
-
-            {/* Sudut kiri atas */}
             <span className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-pop rounded-tl-md" />
-            {/* Sudut kanan atas */}
             <span className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-pop rounded-tr-md" />
-            {/* Sudut kiri bawah */}
             <span className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-pop rounded-bl-md" />
-            {/* Sudut kanan bawah */}
             <span className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-pop rounded-br-md" />
-
-            {/* Laser scan line */}
             <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-pop to-transparent animate-laser-scan" />
           </div>
         </div>
