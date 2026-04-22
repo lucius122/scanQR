@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import api from '../../lib/axios'
-import { fetchList } from '../../lib/api'
 import { Avatar } from '../../components/ui'
 import * as I from '../../components/icons'
 import { cls } from '../../lib/utils'
 
 const ROLES = ['admin', 'kasir', 'member', 'trainer']
-const TIERS = ['Basic', 'Premium', 'VIP']
 
 const ROLE_CHIP = {
   admin:   'bg-pop text-ink',
@@ -93,26 +91,20 @@ function RowActions({ user, onEdit, onResetPassword, onToggleStatus }) {
 
 // ── Add User Modal ─────────────────────────────────────────────────────────
 function AddUserModal({ branches, onSave, onClose }) {
-  const [tiers,    setTiers]    = useState([])
   const [form, setForm] = useState({
     name: '', email: '', password: '', phone: '',
     role: 'kasir', branch_id: '', status: 'active',
-    tier: 'Basic', duration: '1m',
+    duration: '1m',
   })
   const [showPw,   setShowPw]   = useState(false)
   const [errors,   setErrors]   = useState({})
   const [loading,  setLoading]  = useState(false)
   const [success,  setSuccess]  = useState(null)
 
-  useEffect(() => {
-    if (form.role === 'member' && form.branch_id) {
-      api.get(`/api/branches/${form.branch_id}/tiers`)
-        .then(r => setTiers(Array.isArray(r.data.data) ? r.data.data : []))
-        .catch(() => setTiers([]))
-    } else {
-      setTiers([])
-    }
-  }, [form.branch_id, form.role])
+  // Tier auto from selected branch
+  const selectedBranch = branches.find(b => String(b.id) === String(form.branch_id))
+  const branchTierName  = selectedBranch?.tier_name ?? null
+  const branchTierPrice = selectedBranch?.tier_price ?? 0
 
   function field(key) {
     return e => {
@@ -135,7 +127,6 @@ function AddUserModal({ branches, onSave, onClose }) {
       ...(form.phone     && { phone:     form.phone }),
       ...(form.branch_id && { branch_id: Number(form.branch_id) }),
       ...(form.role === 'member' && {
-        tier:     form.tier,
         duration: form.duration,
       }),
     }
@@ -175,7 +166,7 @@ function AddUserModal({ branches, onSave, onClose }) {
             </div>
           )}
           <div className="flex gap-2 pt-1">
-            <button onClick={() => { setSuccess(null); setForm({ name: '', email: '', password: '', phone: '', role: 'kasir', branch_id: '', status: 'active', tier: 'Basic', duration: '1m' }) }}
+            <button onClick={() => { setSuccess(null); setForm({ name: '', email: '', password: '', phone: '', role: 'kasir', branch_id: '', status: 'active', duration: '1m' }) }}
               className="flex-1 h-9 rounded-lg hairline text-sm font-semibold hover:bg-bone-2 transition"
             >
               Tambah lagi
@@ -190,9 +181,7 @@ function AddUserModal({ branches, onSave, onClose }) {
   }
 
   const needsBranch = ['kasir', 'trainer', 'member'].includes(form.role)
-  const tierObj = tiers.find(t => t.tier === form.tier)
   const DURATION_LABELS = { '1d': '1 Hari', '1w': '1 Minggu', '1m': '1 Bulan', '3m': '3 Bulan' }
-  const totalHarga = tierObj && Number(tierObj.price) > 0 ? Number(tierObj.price) : null
 
   return (
     <div className="fixed inset-0 z-50 bg-ink/60 flex items-center justify-center p-4" onClick={onClose}>
@@ -217,7 +206,7 @@ function AddUserModal({ branches, onSave, onClose }) {
               <div className="grid grid-cols-4 gap-2">
                 {ROLES.map(r => (
                   <button key={r} type="button"
-                    onClick={() => { setForm(f => ({ ...f, role: r, branch_id: '', tier: 'Basic' })); setErrors({}) }}
+                    onClick={() => { setForm(f => ({ ...f, role: r, branch_id: '' })); setErrors({}) }}
                     className={cls(
                       'h-9 rounded-lg text-sm font-semibold transition border capitalize',
                       form.role === r ? 'bg-ink text-white border-ink' : 'bg-white border-ink/10 hover:bg-bone-2',
@@ -279,16 +268,15 @@ function AddUserModal({ branches, onSave, onClose }) {
             {form.role === 'member' && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="micro text-ink-4 mb-1">TIER *</div>
-                  <select value={form.tier} onChange={field('tier')} required
-                    className="w-full h-9 px-3 hairline rounded-lg text-sm bg-white focus:outline-none focus-ring">
-                    {(tiers.length ? tiers : TIERS.map(t => ({ tier: t, price: 0 }))).map(t => (
-                      <option key={t.tier} value={t.tier}>
-                        {t.tier}{tiers.length && t.price > 0 ? ` — Rp ${Number(t.price).toLocaleString('id-ID')}` : ''}/bln
-                      </option>
-                    ))}
-                  </select>
-                  {errors.tier && <p className="text-bad text-xs mt-1">{errors.tier[0]}</p>}
+                  <div className="micro text-ink-4 mb-1">TIER</div>
+                  {!branchTierName ? (
+                    <div className="text-xs text-ink-4 py-2">Pilih cabang terlebih dahulu</div>
+                  ) : (
+                    <div className="h-9 px-3 bg-bone-2 hairline rounded-lg text-sm flex items-center justify-between font-semibold">
+                      <span>{branchTierName}</span>
+                      <span className="text-ink-4 text-xs">Rp {Number(branchTierPrice).toLocaleString('id-ID')}</span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="micro text-ink-4 mb-1">DURASI KEANGGOTAAN *</div>
@@ -299,17 +287,16 @@ function AddUserModal({ branches, onSave, onClose }) {
                         className={cls(
                           'py-2 rounded-lg text-xs font-semibold hairline transition',
                           form.duration === key ? 'bg-ink text-white border-ink' : 'hover:bg-bone-2',
-                        )}
-                      >
+                        )}>
                         {label}
                       </button>
                     ))}
                   </div>
                   {errors.duration && <p className="text-bad text-xs mt-1">{errors.duration[0]}</p>}
                 </div>
-                {totalHarga !== null && (
+                {branchTierPrice > 0 && (
                   <div className="col-span-2 bg-pop/15 rounded-lg px-3 py-2 text-sm font-bold">
-                    Harga Tier: Rp {totalHarga.toLocaleString('id-ID')} / bln
+                    Harga Tier: Rp {Number(branchTierPrice).toLocaleString('id-ID')} / bln
                   </div>
                 )}
               </div>
@@ -649,14 +636,12 @@ export default function AdminUsersPage() {
 
   const timerRef = useRef(null)
 
-  // Pre-fetch branches saat halaman pertama kali load — SETELAH user terautentikasi
-  // Pakai /api/admin/branches karena ini sudah terbukti berfungsi dengan auth admin
+  // Pre-fetch branches (includes tier info) untuk dropdown
   useEffect(() => {
-    api.get('/api/admin/branches')
+    api.get('/api/branches/options')
       .then(r => {
         const list = Array.isArray(r.data?.data) ? r.data.data : []
-        // Normalisasi ke format {id, name} yang dipakai dropdown
-        setBranches(list.map(b => ({ id: b.id, name: b.name, address: b.address })))
+        setBranches(list)
       })
       .catch(() => {})
   }, [])

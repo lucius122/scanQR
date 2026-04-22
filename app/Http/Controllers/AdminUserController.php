@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Member;
 use App\Models\User;
 use App\Services\AuditLogService;
@@ -148,7 +149,10 @@ class AdminUserController extends Controller
             ? $this->generatePassword()
             : $data['password'];
 
-        $user->update(['password' => Hash::make($newPassword)]);
+        $user->update([
+            'password'             => Hash::make($newPassword),
+            'must_change_password' => true,
+        ]);
 
         AuditLogService::log('user_password_reset', $request->user(), 'warn', [
             'target_name' => $user->name,
@@ -206,13 +210,17 @@ class AdminUserController extends Controller
             ], 422);
         }
 
-        $memberData = null;
         $expiresDate = null;
+        $tierName = null;
         if ($base['role'] === 'member') {
             $memberData = $request->validate([
-                'tier'            => ['required', Rule::in(['Basic', 'Premium', 'VIP'])],
                 'duration'        => ['required', Rule::in(['1d', '1w', '1m', '3m'])],
             ]);
+
+            // Tier otomatis dari cabang yang dipilih
+            $branch = Branch::with('tier')->findOrFail($base['branch_id']);
+            $tierName = $branch->tier?->name ?? 'Basic';
+
             $expiresDate = match ($memberData['duration']) {
                 '1d' => now()->addDay(),
                 '1w' => now()->addWeek(),
@@ -226,23 +234,24 @@ class AdminUserController extends Controller
             : null;
 
         try {
-            $result = DB::transaction(function () use ($base, $memberData, $expiresDate, $photoPath, $request) {
+            $result = DB::transaction(function () use ($base, $tierName, $expiresDate, $photoPath, $request) {
                 $user = User::create([
-                    'name'      => $base['name'],
-                    'email'     => $base['email'],
-                    'password'  => Hash::make($base['password']),
-                    'role'      => $base['role'],
-                    'branch_id' => $base['branch_id'] ?? null,
-                    'status'    => $base['status'] ?? 'active',
-                    'photo'     => $photoPath,
-                    'phone'     => $base['phone'] ?? null,
+                    'name'                 => $base['name'],
+                    'email'                => $base['email'],
+                    'password'             => Hash::make($base['password']),
+                    'role'                 => $base['role'],
+                    'branch_id'            => $base['branch_id'] ?? null,
+                    'status'               => $base['status'] ?? 'active',
+                    'photo'                => $photoPath,
+                    'phone'                => $base['phone'] ?? null,
+                    'must_change_password' => true,
                 ]);
 
                 $member = null;
                 if ($base['role'] === 'member') {
                     $member = Member::create([
                         'user_id'      => $user->id,
-                        'tier'         => $memberData['tier'],
+                        'tier'         => $tierName,
                         'joined_date'  => now()->toDateString(),
                         'expires_date' => $expiresDate->toDateString(),
                     ]);

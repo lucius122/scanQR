@@ -140,12 +140,11 @@ function SuccessCard({ result, onAddAnother }) {
 export default function AdminAddUserPage() {
   const [role,     setRole]     = useState('member')
   const [branches, setBranches] = useState([])
-  const [tierOpts, setTierOpts] = useState([])
 
   const [form, setForm] = useState({
     name: '', email: '', password: '', phone: '',
     branch_id: '', status: 'active',
-    tier: 'Basic', duration: '1m',
+    duration: '1m',
   })
 
   const [photo,   setPhoto]   = useState(null)
@@ -155,24 +154,13 @@ export default function AdminAddUserPage() {
   const [result,  setResult]  = useState(null)
   const fileRef = useRef()
 
-  // Load branches
+  // Load branches (includes tier info)
   useEffect(() => {
     fetchList('/api/branches/options').then(list => {
       setBranches(list)
       if (list.length > 0) setForm(f => ({ ...f, branch_id: String(list[0].id) }))
     }).catch(() => {})
   }, [])
-
-  // Load tier pricing when branch changes (only for member role)
-  useEffect(() => {
-    if (role !== 'member' || !form.branch_id) {
-      setTierOpts([])
-      return
-    }
-    api.get(`/api/branches/${form.branch_id}/tiers`)
-      .then(r => setTierOpts(Array.isArray(r.data.data) ? r.data.data : []))
-      .catch(() => setTierOpts([]))
-  }, [form.branch_id, role])
 
   function set(field) {
     return e => {
@@ -188,8 +176,10 @@ export default function AdminAddUserPage() {
     setPreview(URL.createObjectURL(file))
   }
 
+  // Tier auto from selected branch
   const selectedBranch = branches.find(b => String(b.id) === String(form.branch_id))
-  const selectedTierPrice = tierOpts.find(t => t.tier === form.tier)?.price ?? 0
+  const branchTierName  = selectedBranch?.tier_name ?? null
+  const branchTierPrice = selectedBranch?.tier_price ?? 0
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -206,7 +196,6 @@ export default function AdminAddUserPage() {
     if (form.branch_id && (role !== 'admin' || form.branch_id !== 'hq'))
       fd.append('branch_id', form.branch_id)
     if (role === 'member') {
-      fd.append('tier',     form.tier)
       fd.append('duration', form.duration)
     }
     if (photo) fd.append('photo', photo)
@@ -232,7 +221,7 @@ export default function AdminAddUserPage() {
     setPhoto(null)
     setPreview(null)
     setErrors({})
-    setForm({ name: '', email: '', password: '', phone: '', branch_id: (branches ?? [])[0]?.id ? String(branches[0].id) : '', status: 'active', tier: 'Basic', duration: '1m' })
+    setForm({ name: '', email: '', password: '', phone: '', branch_id: (branches ?? [])[0]?.id ? String(branches[0].id) : '', status: 'active', duration: '1m' })
   }
 
   if (result) {
@@ -361,32 +350,19 @@ export default function AdminAddUserPage() {
           <div className="bg-white hairline rounded-xl p-5 space-y-4">
             <div className="micro text-ink-4 pb-1 hairline-b">KEANGGOTAAN</div>
 
-            {/* Tier */}
+            {/* Tier — auto from branch */}
             <div>
               <span className="micro text-ink-4 block mb-2">TIER</span>
-              <div className="grid grid-cols-3 gap-2">
-                {['Basic', 'Premium', 'VIP'].map(t => {
-                  const priceObj = tierOpts.find(o => o.tier === t)
-                  return (
-                    <label key={t} className="cursor-pointer">
-                      <input type="radio" name="tier" value={t}
-                        checked={form.tier === t} onChange={set('tier')} className="sr-only" />
-                      <div className={cls(
-                        'text-center py-2.5 rounded-lg text-sm font-semibold hairline transition',
-                        form.tier === t ? 'bg-ink text-white border-ink' : 'bg-white text-ink hover:bg-bone-2'
-                      )}>
-                        <div>{t}</div>
-                        {priceObj && (
-                          <div className={cls('text-[10px] mt-0.5', form.tier === t ? 'text-white/60' : 'text-ink-4')}>
-                            {formatRupiah(priceObj.price)}
-                          </div>
-                        )}
-                      </div>
-                    </label>
-                  )
-                })}
-              </div>
-              {errors.tier && <p className="text-[11px] text-bad mt-1">{errors.tier[0]}</p>}
+              {!branchTierName ? (
+                <div className="bg-bad/10 border border-bad/25 rounded-lg px-4 py-2.5 text-bad text-sm">
+                  Cabang ini belum memiliki tier. Silakan atur di halaman Kelola Cabang.
+                </div>
+              ) : (
+                <div className="bg-bone-2 rounded-lg p-3 flex justify-between items-center">
+                  <span className="font-semibold text-sm">{branchTierName}</span>
+                  <span className="font-bold text-ink">{formatRupiah(branchTierPrice)} / bln</span>
+                </div>
+              )}
             </div>
 
             {/* Duration — preset buttons */}
@@ -404,8 +380,7 @@ export default function AdminAddUserPage() {
                     className={cls(
                       'py-2.5 rounded-lg text-sm font-semibold hairline transition',
                       form.duration === d.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink hover:bg-bone-2'
-                    )}
-                  >
+                    )}>
                     {d.label}
                   </button>
                 ))}
@@ -413,20 +388,18 @@ export default function AdminAddUserPage() {
               {errors.duration && <p className="text-[11px] text-bad mt-1">{errors.duration[0]}</p>}
             </div>
 
-            {/* Preview harga tier */}
-            {selectedTierPrice > 0 && (
-              <div className="bg-bone-2 rounded-lg p-3 flex justify-between items-center">
-                <span className="text-sm text-ink-4">
-                  Tier {form.tier}
-                </span>
-                <span className="font-black text-ink">{formatRupiah(selectedTierPrice)} / bln</span>
+            {/* Preview harga */}
+            {branchTierPrice > 0 && (
+              <div className="bg-pop/10 rounded-lg p-3 flex justify-between items-center">
+                <span className="text-sm text-ink-4">{branchTierName} · {selectedBranch?.name}</span>
+                <span className="font-black text-ink">{formatRupiah(branchTierPrice)} / bln</span>
               </div>
             )}
           </div>
         )}
 
         {/* Submit */}
-        <button type="submit" disabled={loading}
+        <button type="submit" disabled={loading || (role === 'member' && !branchTierName)}
           className="w-full h-12 bg-ink text-white font-bold rounded-xl hover:bg-ink-2 disabled:opacity-50 transition text-sm">
           {loading ? 'Mendaftarkan…' : `Daftarkan ${ROLES.find(r => r.value === role)?.label ?? 'User'}`}
         </button>

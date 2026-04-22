@@ -5,11 +5,13 @@ use App\Http\Controllers\AdminBranchController;
 use App\Http\Controllers\AdminMemberController;
 use App\Http\Controllers\AdminOverviewController;
 use App\Http\Controllers\AdminReportController;
+use App\Http\Controllers\AdminTierController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\KasirScanController;
 use App\Http\Controllers\MemberQrController;
 use App\Http\Controllers\MemberRegistrationController;
+use App\Http\Controllers\ProfileController;
 
 /*
  * FORGE Gym OS — API Routes
@@ -24,17 +26,21 @@ Route::get('/ping', fn () => response()->json([
 
 Route::post('/login', [AuthController::class, 'login']);
 
-// Branches — dropdown publik (hanya cabang aktif, tidak sensitif, tidak butuh auth)
-// Ini memastikan dropdown form selalu bisa diakses tanpa masalah Sanctum SPA session timing
+// Public dropdowns — tidak butuh auth (diperlukan untuk form sebelum login)
 Route::get('/branches/options',      [AdminBranchController::class, 'options']);
 Route::get('/branches',              [AdminBranchController::class, 'dropdown']);
-Route::get('/branches/{id}/tiers',   [AdminBranchController::class, 'tiersByBranch']);
+Route::get('/tiers/options',         [AdminTierController::class, 'options']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
     // Auth
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // Profile — semua role
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::put('/profile/password', [ProfileController::class, 'changePassword']);
 
     // Member — QR display (role: member)
     Route::get('/member/qr', [MemberQrController::class, 'show']);
@@ -72,6 +78,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/admin/branches/{id}', [AdminBranchController::class, 'update']);
         Route::patch('/admin/branches/{id}/status', [AdminBranchController::class, 'updateStatus']);
         Route::delete('/admin/branches/{id}', [AdminBranchController::class, 'destroy']);
+
+        // Admin — kelola tier (master template harga)
+        Route::get('/admin/tiers', [AdminTierController::class, 'index']);
+        Route::post('/admin/tiers', [AdminTierController::class, 'store']);
+        Route::put('/admin/tiers/{id}', [AdminTierController::class, 'update']);
+        Route::delete('/admin/tiers/{id}', [AdminTierController::class, 'destroy']);
 
         // Admin — kelola user (list, edit, toggle status, reset password, daftarkan)
         Route::get('/admin/users', [AdminUserController::class, 'index']);
