@@ -49,7 +49,7 @@ class CheckInService
         // Langkah 2: Verify HMAC — pastikan QR asli dan tidak dimanipulasi
         $parsed = $this->qrService->verify($payload);
         if (!$parsed) {
-            AuditLogService::log('qr_invalid_signature', $kasir, 'bad', [
+            AuditLogService::logDeferred('qr_invalid_signature', $kasir, 'bad', [
                 'attempted_payload' => substr($payload, 0, 80) . (strlen($payload) > 80 ? '...' : ''),
                 'scanner_branch'    => $kasir->branch?->name,
             ]);
@@ -57,9 +57,13 @@ class CheckInService
         }
 
         // Langkah 3: Cari member berdasarkan KEDUA field sekaligus (member_code + qr_token).
-        // Jika hanya cek qr_token, ada risiko: qr_token yang bocor bisa dipakai
-        // dengan member_code orang lain. Double-check menghilangkan risiko ini.
-        $member = Member::with(['user.branch'])
+        // select() spesifik + eager load kolom terbatas — kurangi payload DB→PHP.
+        // Wajib sertakan FK (user_id, branch_id) agar relasi eager load bekerja.
+        $member = Member::with([
+                'user:id,name,photo,status,branch_id',
+                'user.branch:id,name',
+            ])
+            ->select('id', 'user_id', 'member_code', 'tier', 'expires_date')
             ->where('member_code', $parsed['member_code'])
             ->where('qr_token', $parsed['qr_token'])
             ->first();
@@ -101,8 +105,8 @@ class CheckInService
         if (!$member->isActive()) {
             /** @var CarbonInterface $expires */
             $expires = $member->expires_date;
-            AuditLogService::log('expired_member_scan_attempt', $kasir, 'warn', [
-                'member_code'  => $member->member_code,
+            AuditLogService::logDeferred('expired_member_scan_attempt', $kasir, 'warn', [
+                'member_code'   => $member->member_code,
                 'expired_since' => $expires->format('Y-m-d'),
             ]);
             return $this->buildResponse(

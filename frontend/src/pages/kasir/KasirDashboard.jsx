@@ -11,6 +11,23 @@ import { cls } from '../../lib/utils'
 
 const TIER_TONE = { Basic: 'outline', Premium: 'pop', VIP: 'ink' }
 
+// Beep via Web Audio API — tidak butuh file audio eksternal
+function playBeep(success = true) {
+  try {
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)()
+    const osc  = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type            = 'sine'
+    osc.frequency.value = success ? 1200 : 440
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.12)
+  } catch (_) { /* AudioContext tidak tersedia */ }
+}
+
 // ── Status config (untuk label & warna) ──────────────────────────────────
 const STATUS_CFG = {
   success:           { badge: 'ok',      dot: true,  label: '✓ AKTIF',        actionLabel: '✓ Konfirmasi Check-in', actionVariant: 'pop'     },
@@ -179,19 +196,37 @@ function TabScan() {
 
   async function handleQrScan(payload) {
     if (scanning) return
+    playBeep(true)                // feedback instan saat QR terdeteksi
     setCameraActive(false)
     setScanning(true)
+
+    console.time('qr:api_call')
+    let data
     try {
       const res = await api.post('/api/kasir/scan', { qr_payload: payload })
-      setResult(res.data)
-      setModalOpen(true)
+      data = res.data
     } catch (err) {
-      const data = err.response?.data
-      setResult(data ?? { status: 'invalid_qr', message: 'Terjadi kesalahan.', member: null, check_in: null })
-      setModalOpen(true)
+      data = err.response?.data ?? { status: 'invalid_qr', message: 'Terjadi kesalahan.', member: null, check_in: null }
+      if (data.status !== 'success') playBeep(false)
     } finally {
+      console.timeEnd('qr:api_call')
       setScanning(false)
     }
+
+    // Preload foto member sebelum modal muncul — eliminasi flash kosong
+    console.time('qr:photo_load')
+    const photoUrl = data?.member?.photo_url
+    if (photoUrl) {
+      await new Promise(resolve => {
+        const img = new Image()
+        img.onload = img.onerror = resolve
+        img.src = photoUrl
+      })
+    }
+    console.timeEnd('qr:photo_load')
+
+    setResult(data)
+    setModalOpen(true)
   }
 
   async function handleManualSubmit(e) {
