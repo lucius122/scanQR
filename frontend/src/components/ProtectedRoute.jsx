@@ -31,7 +31,8 @@ export default function ProtectedRoute({ children, role }) {
     return <Navigate to="/login" replace />
   }
 
-  if (user.role !== role) {
+  // role=null → semua role yang sudah login boleh akses (contoh: /profile)
+  if (role !== null && user.role !== role) {
     return <Navigate to={`/${user.role}`} replace />
   }
 

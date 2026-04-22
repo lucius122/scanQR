@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import api from '../../lib/axios'
-import { fetchList } from '../../lib/api'
+import { useAuth } from '../../contexts/AuthContext'
 import { Avatar, Badge, Button, Field, Input } from '../../components/ui'
 
-const TIERS = ['Basic', 'Premium', 'VIP']
 const TIER_TONE = { Basic: 'outline', Premium: 'pop', VIP: 'ink' }
+
+function formatRupiah(n) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n)
+}
 
 function formatDateID(dateStr) {
   if (!dateStr) return '—'
@@ -115,10 +118,17 @@ function SuccessCard({ result, onRegisterAnother }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────
 export default function RegisterMemberPage() {
-  const [branches, setBranches] = useState([])
-  const [form, setForm]         = useState({
+  const { user } = useAuth()
+
+  // Kasir's branch + tier auto-detected from auth context
+  const kasirBranchId   = user?.branch?.id ?? null
+  const kasirBranchName = user?.branch?.name ?? '—'
+  const kasirTierName   = user?.branch?.tier_name ?? null
+  const kasirTierPrice  = user?.branch?.tier_price ?? 0
+
+  const [form, setForm] = useState({
     name: '', email: '', password: '', phone: '',
-    branch_id: '', tier: 'Basic', duration: '1m',
+    duration: '1m',
   })
   const [photo,    setPhoto]    = useState(null)
   const [preview,  setPreview]  = useState(null)
@@ -126,13 +136,6 @@ export default function RegisterMemberPage() {
   const [loading,  setLoading]  = useState(false)
   const [result,   setResult]   = useState(null)
   const fileRef = useRef()
-
-  useEffect(() => {
-    fetchList('/api/branches/options').then(list => {
-      setBranches(list)
-      if (list.length > 0) setForm(f => ({ ...f, branch_id: String(list[0].id) }))
-    }).catch(() => {})
-  }, [])
 
   function set(field) {
     return (e) => {
@@ -155,13 +158,12 @@ export default function RegisterMemberPage() {
     setErrors({})
 
     const fd = new FormData()
-    fd.append('name',            form.name)
-    fd.append('email',           form.email)
-    fd.append('password',        form.password)
-    fd.append('phone',           form.phone)
-    fd.append('branch_id',       form.branch_id)
-    fd.append('tier',            form.tier)
-    fd.append('duration', form.duration)
+    fd.append('name',      form.name)
+    fd.append('email',     form.email)
+    fd.append('password',  form.password)
+    fd.append('phone',     form.phone)
+    fd.append('branch_id', kasirBranchId)
+    fd.append('duration',  form.duration)
     if (photo) fd.append('photo', photo)
 
     try {
@@ -182,7 +184,7 @@ export default function RegisterMemberPage() {
 
   function handleRegisterAnother() {
     setResult(null)
-    setForm({ name: '', email: '', password: '', phone: '', branch_id: (branches ?? [])[0]?.id ? String(branches[0].id) : '', tier: 'Basic', duration: '1m' })
+    setForm({ name: '', email: '', password: '', phone: '', duration: '1m' })
     setPhoto(null)
     setPreview(null)
     setErrors({})
@@ -197,6 +199,21 @@ export default function RegisterMemberPage() {
           <div className="text-xl font-black tracking-tight">Member Terdaftar</div>
         </div>
         <SuccessCard result={result} onRegisterAnother={handleRegisterAnother} />
+      </div>
+    )
+  }
+
+  // ── No branch assigned ─────────────────────────────────────────────────
+  if (!kasirBranchId) {
+    return (
+      <div className="max-w-[640px] mx-auto px-4 md:px-6 py-4 md:py-6 pb-24">
+        <div className="mb-5">
+          <div className="micro text-ink-4">KASIR</div>
+          <div className="text-xl font-black tracking-tight">Daftar Member Baru</div>
+        </div>
+        <div className="bg-bad/10 border border-bad/25 rounded-lg px-4 py-3 text-bad text-sm">
+          Akun kasir Anda belum ditugaskan ke cabang mana pun. Hubungi Admin untuk pengaturan cabang.
+        </div>
       </div>
     )
   }
@@ -310,47 +327,26 @@ export default function RegisterMemberPage() {
         <div className="bg-white hairline rounded-xl p-5 space-y-4">
           <div className="micro text-ink-4 pb-1 hairline-b">KEANGGOTAAN</div>
 
-          <Field label="Cabang" hint={errors.branch_id?.[0]}>
-            <select
-              value={form.branch_id}
-              onChange={set('branch_id')}
-              className="w-full h-10 px-3 bg-white hairline rounded-md text-sm focus-ring focus:outline-none cursor-pointer"
-            >
-              {branches.length === 0 && (
-                <option value="">Memuat cabang…</option>
-              )}
-              {branches.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
+          {/* Cabang & Tier — auto-detected, read-only */}
+          <Field label="Cabang">
+            <div className="w-full h-10 px-3 bg-bone-2 hairline rounded-md text-sm flex items-center text-ink font-semibold">
+              {kasirBranchName}
+            </div>
           </Field>
 
-          {/* Tier — radio cards */}
+          {/* Tier — read-only from branch */}
           <div>
             <span className="micro text-ink-4 block mb-2">TIER</span>
-            <div className="grid grid-cols-3 gap-2">
-              {TIERS.map(t => (
-                <label key={t} className="cursor-pointer">
-                  <input
-                    type="radio"
-                    name="tier"
-                    value={t}
-                    checked={form.tier === t}
-                    onChange={set('tier')}
-                    className="sr-only"
-                  />
-                  <div className={
-                    `text-center py-2.5 rounded-lg text-sm font-semibold hairline transition ` +
-                    (form.tier === t
-                      ? 'bg-ink text-white border-ink'
-                      : 'bg-white text-ink hover:bg-bone-2')
-                  }>
-                    {t}
-                  </div>
-                </label>
-              ))}
-            </div>
-            {errors.tier && <p className="text-[11px] text-bad mt-1">{errors.tier[0]}</p>}
+            {!kasirTierName ? (
+              <div className="bg-bad/10 border border-bad/25 rounded-lg px-4 py-2.5 text-bad text-sm">
+                Cabang ini belum memiliki tier. Hubungi Admin.
+              </div>
+            ) : (
+              <div className="bg-bone-2 rounded-lg p-3 flex justify-between items-center">
+                <span className="font-semibold text-sm">{kasirTierName}</span>
+                <span className="font-bold text-ink">{formatRupiah(kasirTierPrice)} / bln</span>
+              </div>
+            )}
           </div>
 
           {/* Duration — preset buttons */}
@@ -363,29 +359,34 @@ export default function RegisterMemberPage() {
                 { key: '1m', label: '1 Bulan' },
                 { key: '3m', label: '3 Bulan' },
               ].map(d => (
-                <button
-                  key={d.key}
-                  type="button"
+                <button key={d.key} type="button"
                   onClick={() => setForm(f => ({ ...f, duration: d.key }))}
                   className={
                     `py-2.5 rounded-lg text-sm font-semibold hairline transition ` +
-                    (form.duration === d.key
-                      ? 'bg-ink text-white border-ink'
-                      : 'bg-white text-ink hover:bg-bone-2')
-                  }
-                >
+                    (form.duration === d.key ? 'bg-ink text-white border-ink' : 'bg-white text-ink hover:bg-bone-2')
+                  }>
                   {d.label}
                 </button>
               ))}
             </div>
             {errors.duration && <p className="text-[11px] text-bad mt-1">{errors.duration[0]}</p>}
           </div>
+
+          {/* Preview harga */}
+          {kasirTierPrice > 0 && (
+            <div className="bg-pop/10 rounded-lg p-3 flex justify-between items-center">
+              <span className="text-sm text-ink-4">
+                {kasirTierName} · {kasirBranchName}
+              </span>
+              <span className="font-black text-ink">{formatRupiah(kasirTierPrice)} / bln</span>
+            </div>
+          )}
         </div>
 
         {/* Submit */}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !kasirTierName}
           className="w-full h-12 bg-ink text-white font-bold rounded-xl hover:bg-ink-2 disabled:opacity-50 transition text-sm"
         >
           {loading ? 'Mendaftarkan…' : 'Daftarkan Member'}

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Member;
 use App\Models\User;
 use App\Services\QrService;
@@ -42,9 +43,12 @@ class MemberRegistrationController extends Controller
             'phone'           => ['nullable', 'string', 'max:30'],
             'photo'           => ['nullable', 'image', 'max:2048'],
             'branch_id'       => ['required', 'exists:branches,id'],
-            'tier'            => ['required', Rule::in(['Basic', 'Premium', 'VIP'])],
             'duration'        => ['required', Rule::in(['1d', '1w', '1m', '3m'])],
         ]);
+
+        // Tier otomatis dari cabang — bukan input dari user
+        $branch = Branch::with('tier')->findOrFail($data['branch_id']);
+        $tierName = $branch->tier?->name ?? 'Basic';
 
         $expiresDate = match ($data['duration']) {
             '1d' => now()->addDay(),
@@ -84,7 +88,7 @@ class MemberRegistrationController extends Controller
                  */
                 $member = Member::create([
                     'user_id'      => $user->id,
-                    'tier'         => $data['tier'],
+                    'tier'         => $tierName,
                     'joined_date'  => now()->toDateString(),
                     'expires_date' => $expiresDate->toDateString(),
                 ]);

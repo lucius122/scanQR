@@ -11,11 +11,12 @@ import KasirDashboard from './pages/kasir/KasirDashboard'
 import MemberDashboard from './pages/member/MemberDashboard'
 
 // Halaman admin & fitur berat — lazy load (split ke chunk terpisah)
-const AdminDashboard   = lazy(() => import('./pages/admin/AdminDashboard'))
+const AdminDashboard    = lazy(() => import('./pages/admin/AdminDashboard'))
 const AdminBranchesPage = lazy(() => import('./pages/admin/AdminBranchesPage'))
 const AdminUsersPage    = lazy(() => import('./pages/admin/AdminUsersPage'))
 const RegisterMemberPage = lazy(() => import('./pages/kasir/RegisterMemberPage'))
 const TrainerDashboard   = lazy(() => import('./pages/trainer/TrainerDashboard'))
+const ProfilePage        = lazy(() => import('./pages/ProfilePage'))
 
 function PageLoader() {
   return (
@@ -63,6 +64,9 @@ export default function App() {
 
             <Route path="/member"  element={<ShellRoute role="member"><MemberDashboard /></ShellRoute>} />
             <Route path="/trainer" element={<ShellRoute role="trainer"><TrainerDashboard /></ShellRoute>} />
+
+            {/* Profile — semua role bisa akses */}
+            <Route path="/profile" element={<ShellRoute role={null}><ProfilePage /></ShellRoute>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

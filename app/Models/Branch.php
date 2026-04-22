@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['name', 'address', 'phone', 'opening_hours', 'status'])]
+#[Fillable(['name', 'address', 'phone', 'opening_hours', 'status', 'tier_id'])]
 class Branch extends Model
 {
     public function users()
@@ -18,8 +18,12 @@ class Branch extends Model
         return $this->hasMany(CheckIn::class);
     }
 
-    public function tiers()
+    /**
+     * Tier yang berlaku di cabang ini.
+     * Tier = template harga (nama + harga).
+     */
+    public function tier()
     {
-        return $this->hasMany(BranchTier::class);
+        return $this->belongsTo(Tier::class);
     }
 }

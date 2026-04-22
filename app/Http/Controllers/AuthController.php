@@ -82,16 +82,25 @@ class AuthController extends Controller
 
     private function formatUser($user): array
     {
+        // Eager-load branch + tier jika belum loaded
+        if ($user->branch_id && !$user->relationLoaded('branch')) {
+            $user->load('branch.tier');
+        }
+
         return [
-            'id'     => $user->id,
-            'name'   => $user->name,
-            'email'  => $user->email,
-            'role'   => $user->role,
-            'photo'  => $user->photo,
-            'status' => $user->status,
+            'id'                   => $user->id,
+            'name'                 => $user->name,
+            'email'                => $user->email,
+            'role'                 => $user->role,
+            'photo'                => $user->photo,
+            'status'               => $user->status,
+            'must_change_password' => (bool) ($user->must_change_password ?? false),
             'branch' => $user->branch ? [
-                'id'   => $user->branch->id,
-                'name' => $user->branch->name,
+                'id'         => $user->branch->id,
+                'name'       => $user->branch->name,
+                'tier_id'    => $user->branch->tier_id,
+                'tier_name'  => $user->branch->tier?->name,
+                'tier_price' => $user->branch->tier ? (float) $user->branch->tier->price : 0,
             ] : null,
         ];
     }

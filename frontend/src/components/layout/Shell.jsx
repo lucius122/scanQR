@@ -6,14 +6,18 @@ import { Avatar, Badge, Logo } from '../ui'
 import * as I from '../icons'
 import { cls } from '../../lib/utils'
 
+const PROFILE_NAV = { id: 'profile', label: 'Profil Saya', icon: <I.User size={18} />, href: '/profile' }
+
 const ROLE_NAVS = {
   kasir: [
     { id: 'scan',     label: 'Scan QR',      icon: <I.Scan     size={18} /> },
     { id: 'visitors', label: 'Pengunjung',   icon: <I.Users    size={18} /> },
     { id: 'register', label: 'Daftar Member',icon: <I.UserPlus size={18} />, href: '/kasir/register-member' },
+    PROFILE_NAV,
   ],
   member: [
     { id: 'qr', label: 'QR Saya', icon: <I.Qr size={18} /> },
+    PROFILE_NAV,
   ],
   admin: [
     { id: 'overview',  label: 'Overview',    icon: <I.Home     size={18} /> },
@@ -22,11 +26,13 @@ const ROLE_NAVS = {
     { id: 'users',     label: 'Staff',       icon: <I.UserPlus size={18} />, href: '/admin/users' },
     { id: 'reports',   label: 'Laporan',     icon: <I.Chart    size={18} /> },
     { id: 'audit',     label: 'Audit Log',   icon: <I.Shield   size={18} /> },
+    PROFILE_NAV,
   ],
   trainer: [
     { id: 'home',    label: 'Home',     icon: <I.Home     size={18} /> },
     { id: 'members', label: 'Members',  icon: <I.Users    size={18} /> },
     { id: 'sched',   label: 'Schedule', icon: <I.Calendar size={18} /> },
+    PROFILE_NAV,
   ],
 }
 
@@ -298,6 +304,21 @@ function ShellInner({ children }) {
         </header>
 
         <main className="flex-1">
+          {user?.must_change_password && (
+            <div className="bg-warn/10 border-b border-warn/30 px-4 md:px-6 py-3 flex items-center gap-3">
+              <I.Lock size={16} className="text-warn shrink-0" />
+              <div className="flex-1 text-sm">
+                <span className="font-bold text-warn">Ganti password default.</span>{' '}
+                <span className="text-ink-3">Demi keamanan akun Anda, segera ganti password yang diberikan admin.</span>
+              </div>
+              <Link
+                to="/profile"
+                className="shrink-0 px-3 h-7 rounded-md bg-warn text-white text-xs font-bold flex items-center hover:bg-amber-500 transition"
+              >
+                Ganti Sekarang
+              </Link>
+            </div>
+          )}
           {children}
         </main>
       </div>

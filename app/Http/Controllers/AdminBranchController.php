@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Branch;
-use App\Models\BranchTier;
 use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,13 +13,24 @@ class AdminBranchController extends Controller
     /*
      * GET /api/branches/options
      * Dropdown list aktif — hanya cabang active, non-paginated, di-cache 1 jam.
+     * Includes tier info (name + price) for each branch.
      */
     public function options(): JsonResponse
     {
         $data = Cache::remember('branches_options', 3600, fn () =>
             Branch::where('status', 'active')
+                ->with('tier:id,name,price')
                 ->orderBy('name')
-                ->get(['id', 'name', 'address'])
+                ->get(['id', 'name', 'address', 'tier_id'])
+                ->map(fn ($b) => [
+                    'id'         => $b->id,
+                    'name'       => $b->name,
+                    'address'    => $b->address,
+                    'tier_id'    => $b->tier_id,
+                    'tier_name'  => $b->tier?->name,
+                    'tier_price' => $b->tier ? (float) $b->tier->price : 0,
+                ])
+                ->toArray()
         );
         return response()->json(['data' => $data]);
     }
@@ -34,41 +44,32 @@ class AdminBranchController extends Controller
         return response()->json(
             Cache::remember('branches_active_dropdown', 3600, fn () =>
                 Branch::where('status', 'active')
+                    ->with('tier:id,name,price')
                     ->orderBy('name')
-                    ->get(['id', 'name', 'address'])
+                    ->get(['id', 'name', 'address', 'tier_id'])
+                    ->map(fn ($b) => [
+                        'id'         => $b->id,
+                        'name'       => $b->name,
+                        'address'    => $b->address,
+                        'tier_id'    => $b->tier_id,
+                        'tier_name'  => $b->tier?->name,
+                        'tier_price' => $b->tier ? (float) $b->tier->price : 0,
+                    ])
+                    ->toArray()
             )
         );
     }
 
     /*
-     * GET /api/branches/{id}/tiers
-     * Daftar harga tier per cabang — di-cache 1 jam.
-     */
-    public function tiersByBranch(int $id): JsonResponse
-    {
-        $tiers = Cache::remember(
-            "branch_tiers_{$id}",
-            3600,
-            fn () => BranchTier::where('branch_id', $id)
-                ->orderBy('tier')
-                ->get(['tier', 'price'])
-                ->map(fn ($t) => ['tier' => $t->tier, 'price' => (float) $t->price])
-        );
-
-        return response()->json(['data' => $tiers]);
-    }
-
-    /*
      * GET /api/admin/branches
-     * List semua cabang beserta tiers dan jumlah member aktif.
+     * List semua cabang beserta tier dan jumlah member aktif.
      */
-
     public function index(): JsonResponse
     {
         $branches = Branch::withCount([
             'users as member_count' => fn ($q) => $q->where('role', 'member'),
         ])
-        ->with('tiers')
+        ->with('tier:id,name,price')
         ->orderBy('name')
         ->get()
         ->map(fn ($b) => [
@@ -79,11 +80,12 @@ class AdminBranchController extends Controller
             'opening_hours' => $b->opening_hours,
             'status'        => $b->status,
             'member_count'  => $b->member_count,
-            'tiers'         => $b->tiers->map(fn ($t) => [
-                'id'    => $t->id,
-                'tier'  => $t->tier,
-                'price' => (float) $t->price,
-            ])->values(),
+            'tier_id'       => $b->tier_id,
+            'tier'          => $b->tier ? [
+                'id'    => $b->tier->id,
+                'name'  => $b->tier->name,
+                'price' => (float) $b->tier->price,
+            ] : null,
         ]);
 
         return response()->json(['data' => $branches]);
@@ -91,19 +93,16 @@ class AdminBranchController extends Controller
 
     /*
      * POST /api/admin/branches
-     * Buat cabang baru beserta harga tier-nya.
+     * Buat cabang baru — admin memilih tier dari dropdown.
      */
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name'              => ['required', 'string', 'max:255'],
-            'address'           => ['required', 'string'],
-            'phone'             => ['required', 'string', 'max:30'],
-            'opening_hours'     => ['nullable', 'string', 'max:50'],
-            'tiers'             => ['nullable', 'array'],
-            'tiers.Basic'       => ['nullable', 'numeric', 'min:0'],
-            'tiers.Premium'     => ['nullable', 'numeric', 'min:0'],
-            'tiers.VIP'         => ['nullable', 'numeric', 'min:0'],
+            'name'          => ['required', 'string', 'max:255'],
+            'address'       => ['required', 'string'],
+            'phone'         => ['required', 'string', 'max:30'],
+            'opening_hours' => ['nullable', 'string', 'max:50'],
+            'tier_id'       => ['required', 'exists:tiers,id'],
         ]);
 
         $branch = Branch::create([
@@ -112,35 +111,25 @@ class AdminBranchController extends Controller
             'phone'         => $data['phone'],
             'opening_hours' => $data['opening_hours'] ?? '06:00-22:00',
             'status'        => 'active',
+            'tier_id'       => $data['tier_id'],
         ]);
-
-        if (!empty($data['tiers'])) {
-            foreach ($data['tiers'] as $tier => $price) {
-                if ($price !== null) {
-                    BranchTier::updateOrCreate(
-                        ['branch_id' => $branch->id, 'tier' => $tier],
-                        ['price'     => $price]
-                    );
-                }
-            }
-        }
 
         AuditLogService::log('branch_created', $request->user(), 'info', [
             'branch_name' => $branch->name,
             'branch_id'   => $branch->id,
         ]);
 
-        $this->flushBranchCache($branch->id);
+        $this->flushBranchCache();
 
         return response()->json([
             'message' => 'Cabang berhasil ditambahkan.',
-            'data'    => $branch->load('tiers'),
+            'data'    => $branch->load('tier'),
         ], 201);
     }
 
     /*
      * PUT /api/admin/branches/{id}
-     * Update info cabang + tier pricing.
+     * Update info cabang + tier.
      */
     public function update(Request $request, int $id): JsonResponse
     {
@@ -151,10 +140,7 @@ class AdminBranchController extends Controller
             'address'       => ['required', 'string'],
             'phone'         => ['required', 'string', 'max:30'],
             'opening_hours' => ['nullable', 'string', 'max:50'],
-            'tiers'         => ['nullable', 'array'],
-            'tiers.Basic'   => ['nullable', 'numeric', 'min:0'],
-            'tiers.Premium' => ['nullable', 'numeric', 'min:0'],
-            'tiers.VIP'     => ['nullable', 'numeric', 'min:0'],
+            'tier_id'       => ['required', 'exists:tiers,id'],
         ]);
 
         $branch->update([
@@ -162,29 +148,19 @@ class AdminBranchController extends Controller
             'address'       => $data['address'],
             'phone'         => $data['phone'],
             'opening_hours' => $data['opening_hours'] ?? $branch->opening_hours,
+            'tier_id'       => $data['tier_id'],
         ]);
-
-        if (!empty($data['tiers'])) {
-            foreach ($data['tiers'] as $tier => $price) {
-                if ($price !== null) {
-                    BranchTier::updateOrCreate(
-                        ['branch_id' => $branch->id, 'tier' => $tier],
-                        ['price'     => $price]
-                    );
-                }
-            }
-        }
 
         AuditLogService::log('branch_updated', $request->user(), 'info', [
             'branch_name' => $branch->name,
             'branch_id'   => $branch->id,
         ]);
 
-        $this->flushBranchCache($branch->id);
+        $this->flushBranchCache();
 
         return response()->json([
             'message' => 'Cabang berhasil diupdate.',
-            'data'    => $branch->fresh('tiers'),
+            'data'    => $branch->fresh('tier'),
         ]);
     }
 
@@ -211,7 +187,7 @@ class AdminBranchController extends Controller
             ]
         );
 
-        $this->flushBranchCache($branch->id);
+        $this->flushBranchCache();
 
         return response()->json(['message' => 'Status cabang berhasil diupdate.']);
     }
@@ -235,16 +211,15 @@ class AdminBranchController extends Controller
             'branch_id'   => $branch->id,
         ]);
 
-        $this->flushBranchCache($branch->id);
+        $this->flushBranchCache();
         $branch->delete();
 
         return response()->json(['message' => 'Cabang berhasil dihapus.']);
     }
 
-    private function flushBranchCache(int $branchId): void
+    private function flushBranchCache(): void
     {
         Cache::forget('branches_active_dropdown');
         Cache::forget('branches_options');
-        Cache::forget("branch_tiers_{$branchId}");
     }
 }
