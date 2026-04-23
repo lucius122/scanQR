@@ -1,58 +1,110 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# ScanQR
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Proyek sistem manajemen Gym/Pusat Kebugaran dengan fitur QR scan, manajemen cabang (branch), pengaturan tier membership, dan dashboard admin.
 
-## About Laravel
+## 🚀 Teknologi & Versi yang Digunakan
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Proyek ini dibangun menggunakan *stack* teknologi berikut:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- **PHP**: `^8.3`
+- **Laravel Framework**: `^13.0`
+- **Node.js**: (Direkomendasikan v20+)
+- **Vite**: `^8.0.0`
+- **TailwindCSS**: `^4.0.0`
+- **Sanctum**: `^4.3` (Untuk Autentikasi API)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 🛠️ Cara Instalasi (Setup Project)
 
-## Learning Laravel
+Ikuti langkah-langkah berikut untuk menjalankan project ini secara lokal di environment Anda (seperti Laragon):
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+1. **Clone Repository**
+   Buka terminal, lalu clone project ini dan masuk ke foldernya:
+   ```bash
+   git clone <url-repository-anda>
+   cd scanQR
+   ```
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+2. **Jalankan Setup Otomatis (Recomended)**
+   Proyek ini memiliki script otomatis dari Laravel. Pastikan Anda sudah menginstal **Composer** dan **Node.js**. Jalankan perintah ini:
+   ```bash
+   composer run setup
+   ```
+   *Perintah di atas akan secara otomatis mengeksekusi:*
+   - `composer install` (Menginstal dependensi PHP)
+   - Membuat salinan file `.env.example` menjadi `.env`
+   - `php artisan key:generate` (Membuat application key)
+   - `php artisan migrate` (Menjalankan migrasi database SQLite default)
+   - `npm install` & `npm run build` (Menginstal dan mem-build dependensi frontend)
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+3. **Konfigurasi Database Tambahan (Opsional)**
+   Secara default, Laravel menggunakan SQLite (`database/database.sqlite`). Jika Anda menggunakan MySQL (bawaan Laragon), buka file `.env` dan sesuaikan nilainya:
+   ```env
+   DB_CONNECTION=mysql
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_DATABASE=nama_database_anda
+   DB_USERNAME=root
+   DB_PASSWORD=
+   ```
+   *(Setelah diubah, jangan lupa buat database di phpMyAdmin/HeidiSQL, lalu jalankan `php artisan migrate` ulang).*
 
-## Agentic Development
+4. **Jalankan Development Server**
+   Untuk menyalakan server lokal secara bersamaan (Laravel backend + Vite frontend auto-reload), jalankan:
+   ```bash
+   composer run dev
+   ```
+   Aplikasi Anda sekarang dapat diakses di **http://localhost:8000**.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+---
+
+## 🌿 Cara Branching (Git Workflow)
+
+Agar proses *development* berjalan rapi dan tidak terjadi konflik kode yang berantakan, ikuti standar aturan Git Branching di bawah ini:
+
+### 1. Penamaan Branch
+Jangan bekerja langsung di branch `main`. Buatlah branch baru setiap kali mengerjakan tugas/fitur. Gunakan format awalan berikut:
+- **`feature/...`** : Untuk penambahan fitur baru. (contoh: `feature/admin-branch-selection`)
+- **`bugfix/...`** : Untuk perbaikan error/bug. (contoh: `bugfix/export-csv-error`)
+- **`hotfix/...`** : Untuk perbaikan kritis yang harus segera naik ke production.
+
+### 2. Langkah-langkah Pembuatan Branch
+Berikut adalah alur pengerjaannya di terminal:
 
 ```bash
-composer require laravel/boost --dev
+# 1. Selalu pastikan Anda berada di branch utama (main) terlebih dahulu
+git checkout main
 
-php artisan boost:install
+# 2. Tarik update kode terbaru dari server online
+git pull origin main
+
+# 3. Buat branch baru sesuai tugas Anda dan langsung pindah ke branch tersebut
+git checkout -b feature/nama-fitur-kamu
+# (Contoh: git checkout -b feature/manage-tier)
+
+# 4. Silakan mulai ngoding...
+
+# 5. Setelah selesai, cek file apa saja yang berubah
+git status
+
+# 6. Tambahkan file yang berubah ke Git
+git add .
+
+# 7. Simpan perubahan dengan pesan (commit message) yang jelas
+git commit -m "feat: menambahkan sistem template untuk tier gym"
+
+# 8. Unggah (push) branch baru kamu ke GitHub/GitLab
+git push origin feature/nama-fitur-kamu
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### 3. Panduan Pesan Commit (Commit Convention)
+Gunakan *prefix* yang jelas pada pesan commit untuk memudahkan pelacakan histori kode:
+- `feat:` -> Jika menambahkan fitur baru.
+- `fix:` -> Jika memperbaiki suatu bug/error.
+- `refactor:` -> Jika merapikan kode (tanpa menambah fungsi baru).
+- `docs:` -> Jika ada perubahan pada dokumentasi (misal update README).
+- `style:` -> Perubahan tampilan CSS/UI tanpa merubah logika program.
 
-## Contributing
+Contoh Commit: `git commit -m "fix: memperbaiki masalah login gagal di perangkat mobile"`
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+---
+**Catatan:** Jika branch kamu sudah selesai dikerjakan dan sudah di-push, buatlah **Pull Request (PR)** di GitHub untuk digabungkan kembali ke branch `main`.
